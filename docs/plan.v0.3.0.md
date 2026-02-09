@@ -73,7 +73,7 @@ Lane view:
 |---|---|---|---|
 | ~~TASK-00023~~ | ~~TASK-00026~~ | TASK-00030 | TASK-00032 |
 | ~~TASK-00024~~ | ~~TASK-00027~~ | TASK-00031 | TASK-00033 |
-| ~~TASK-00025~~ | TASK-00028 |  |  |
+| ~~TASK-00025~~ | ~~TASK-00028~~ |  |  |
 |  | TASK-00029 |  |  |
 
 ## 3. Task Registry
@@ -403,7 +403,7 @@ Every task section includes:
 
 - Objective: run RDNS lookups only for newly discovered firewall devices with deterministic timeout/retry policy.
 - Spec refs: SPEC §6.8, §7.2, §11(21)
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00027
 - Changelog requirement: Yes
@@ -431,9 +431,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] existing devices do not trigger RDNS.
-- [ ] lookup status mapping matches spec contract.
-- [ ] timeout/retry policy is deterministic.
+- [x] existing devices do not trigger RDNS.
+- [x] lookup status mapping matches spec contract.
+- [x] timeout/retry policy is deterministic.
 
 #### Verification (Proof Required)
 
@@ -455,7 +455,7 @@ Every task section includes:
 - Required commit message format: `TASK-00028: integrate deterministic rdns enrichment`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00028: integrate deterministic rdns enrichment`
 
 ### TASK-00029: Implement commit pipeline, allowlist staging, and ledgers
 

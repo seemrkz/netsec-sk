@@ -1,5 +1,20 @@
 # Changelog
 
+## TASK-00028
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Integrated deterministic RDNS enrichment in ingest runtime for newly discovered firewall devices, including CLI ingest flag parsing for `--rdns` and stable preservation of existing DNS data on subsequent ingests.
+- Files:
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/enrich -run TestRDNSOnlyForNewDevices` -> `ok   github.com/seemrkz/netsec-sk/internal/enrich`
+  - `go test ./internal/enrich -run TestRDNSTimeoutRetry` -> `ok   github.com/seemrkz/netsec-sk/internal/enrich`
+
 ## TASK-00027
 
 - Date: 2026-02-09

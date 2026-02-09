@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -485,6 +486,77 @@ func TestSnapshotPersistenceOnChange(t *testing.T) {
 	}
 	if len(entries) != 2 {
 		t.Fatalf("snapshot count after changed=%d, want 2", len(entries))
+	}
+}
+
+func TestRDNSOnlyForNewDevicesInRuntime(t *testing.T) {
+	repoPath := t.TempDir()
+	if _, err := repo.Init(repoPath); err != nil {
+		t.Skipf("git unavailable for rdns runtime test: %v", err)
+	}
+
+	archive := filepath.Join(repoPath, "fw.tgz")
+	if err := writeTGZ(archive, []tarEntry{{Name: "tmp/cli/fw.txt", Body: "firewall\nserial: S-RDNS\nhostname: fw-rdns\nmgmt_ip: 10.1.1.1"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	originalLookup := rdnsLookup
+	defer func() { rdnsLookup = originalLookup }()
+	calls := 0
+	rdnsLookup = func(ctx context.Context, ip string) (string, error) {
+		calls++
+		return "fw-rdns.example.net", nil
+	}
+
+	now := time.Unix(1_700_001_000, 0).UTC()
+	first, err := Run(RunOptions{
+		RepoPath:   repoPath,
+		EnvIDRaw:   "prod",
+		Inputs:     []string{archive},
+		EnableRDNS: true,
+		Now:        now,
+	})
+	if err != nil {
+		t.Fatalf("Run(first) err=%v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("rdns calls after first run=%d, want 1", calls)
+	}
+	if first.ParseErrorFatal != 0 {
+		t.Fatalf("first summary=%+v", first)
+	}
+
+	latestPath := filepath.Join(repoPath, "envs", "prod", "state", "devices", "S-RDNS", "latest.json")
+	data, err := os.ReadFile(latestPath)
+	if err != nil {
+		t.Fatalf("read latest err=%v", err)
+	}
+	var latest map[string]any
+	if err := json.Unmarshal(data, &latest); err != nil {
+		t.Fatalf("unmarshal latest err=%v", err)
+	}
+	device := latest["device"].(map[string]any)
+	dns := device["dns"].(map[string]any)
+	reverse := dns["reverse"].(map[string]any)
+	if reverse["status"] != "ok" || reverse["ptr_name"] != "fw-rdns.example.net" {
+		t.Fatalf("unexpected reverse dns fields: %#v", reverse)
+	}
+
+	second, err := Run(RunOptions{
+		RepoPath:   repoPath,
+		EnvIDRaw:   "prod",
+		Inputs:     []string{archive},
+		EnableRDNS: true,
+		Now:        now.Add(1 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("Run(second) err=%v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("rdns calls after second run=%d, want still 1", calls)
+	}
+	if second.SkippedStateUnchanged != 1 {
+		t.Fatalf("second summary=%+v", second)
 	}
 }
 

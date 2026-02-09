@@ -416,3 +416,39 @@ func TestIngestErrorCodeMapping(t *testing.T) {
 		})
 	}
 }
+
+func TestIngestFlagParsingAndPassThrough(t *testing.T) {
+	original := ingestRun
+	defer func() { ingestRun = original }()
+
+	var got ingest.RunOptions
+	ingestRun = func(opts ingest.RunOptions) (ingest.Summary, error) {
+		got = opts
+		return ingest.Summary{Attempted: 1}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--repo", "/tmp/repo", "--env", "prod", "ingest", "--rdns", "--keep-extract", "a.tgz"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run(ingest flags) code=%d stderr=%q", code, stderr.String())
+	}
+	if !got.EnableRDNS || !got.KeepExtract {
+		t.Fatalf("flags not passed through: %+v", got)
+	}
+	if len(got.Inputs) != 1 || got.Inputs[0] != "a.tgz" {
+		t.Fatalf("unexpected ingest inputs: %#v", got.Inputs)
+	}
+	if !strings.Contains(stdout.String(), "Ingest complete: attempted=1") {
+		t.Fatalf("unexpected stdout: %q", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Run([]string{"ingest", "--bad-opt", "a.tgz"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("Run(ingest bad flag) code=%d want 2", code)
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE unknown ingest option: --bad-opt") {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}

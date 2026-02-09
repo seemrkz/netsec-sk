@@ -2,10 +2,12 @@ package ingest
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -28,6 +30,7 @@ var acquireRunLock = AcquireLock
 var releaseRunLock = ReleaseLock
 var currentPID = os.Getpid
 var currentProcessInspector LockInspector = ProcessInspector{}
+var rdnsLookup enrich.LookupFunc = defaultRDNSLookup
 
 type Summary struct {
 	Attempted             int
@@ -39,10 +42,12 @@ type Summary struct {
 }
 
 type RunOptions struct {
-	RepoPath string
-	EnvIDRaw string
-	Inputs   []string
-	Now      time.Time
+	RepoPath    string
+	EnvIDRaw    string
+	Inputs      []string
+	EnableRDNS  bool
+	KeepExtract bool
+	Now         time.Time
 }
 
 func Run(options RunOptions) (Summary, error) {
@@ -93,13 +98,13 @@ func Run(options RunOptions) (Summary, error) {
 
 		extractErr := ExtractArchive(input, extractDir)
 		if extractErr != nil {
-			_ = FinishTSFExtractDir(extractDir, false)
+			_ = FinishTSFExtractDir(extractDir, options.KeepExtract)
 			summary.ParseErrorFatal++
 			continue
 		}
 
 		fileContents, extractedPaths, err := readExtractedFiles(extractDir)
-		_ = FinishTSFExtractDir(extractDir, false)
+		_ = FinishTSFExtractDir(extractDir, options.KeepExtract)
 		if err != nil {
 			summary.ParseErrorFatal++
 			continue
@@ -118,6 +123,28 @@ func Run(options RunOptions) (Summary, error) {
 		}
 
 		latestPath, snapshotsDir := statePaths(options.RepoPath, prep.EnvID, string(out.EntityType), out.EntityID)
+		isNewDevice := !pathExists(latestPath)
+		if out.EntityType == parse.EntityFirewall {
+			device, _ := out.Snapshot["device"].(map[string]any)
+			if !isNewDevice {
+				if existingDNS, ok := readExistingDeviceDNS(latestPath); ok {
+					device["dns"] = existingDNS
+				}
+			}
+			mgmtIP, _ := device["mgmt_ip"].(string)
+			rdns, ok := ApplyRDNS(options.EnableRDNS, isNewDevice, mgmtIP, now, rdnsLookup)
+			if ok {
+				device["dns"] = map[string]any{
+					"reverse": map[string]any{
+						"ip":               rdns.IP,
+						"ptr_name":         rdns.PTRName,
+						"status":           rdns.Status,
+						"looked_up_at_utc": rdns.LookedUpAtUTC,
+					},
+				}
+			}
+		}
+
 		snapshotStamp := now.UTC().Format("20060102T150405Z")
 		unchanged, _, _, err := state.PersistIfChanged(out.Snapshot, latestPath, snapshotsDir, snapshotStamp)
 		if err != nil {
@@ -325,6 +352,31 @@ func statePaths(repoPath string, envID string, entityType string, entityID strin
 	return filepath.Join(base, "latest.json"), filepath.Join(base, "snapshots")
 }
 
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func readExistingDeviceDNS(latestPath string) (map[string]any, bool) {
+	data, err := os.ReadFile(latestPath)
+	if err != nil {
+		return nil, false
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, false
+	}
+	device, ok := doc["device"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	dns, ok := device["dns"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	return dns, true
+}
+
 type IngestLogEntry struct {
 	AttemptedAtUTC   string `json:"attempted_at_utc,omitempty"`
 	RunID            string `json:"run_id,omitempty"`
@@ -408,4 +460,19 @@ func ApplyRDNS(enabled bool, isNewDevice bool, mgmtIP string, now time.Time, loo
 		Now:         now,
 		Lookup:      lookup,
 	})
+}
+
+func defaultRDNSLookup(ctx context.Context, ip string) (string, error) {
+	names, err := net.DefaultResolver.LookupAddr(ctx, ip)
+	if err != nil {
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+			return "", enrich.ErrNotFound
+		}
+		return "", err
+	}
+	if len(names) == 0 {
+		return "", enrich.ErrNotFound
+	}
+	return strings.TrimSuffix(names[0], "."), nil
 }

@@ -318,16 +318,24 @@ func runOpen(parsed ParseResult, stdout, stderr io.Writer) int {
 }
 
 func runIngest(parsed ParseResult, stdout, stderr io.Writer) int {
-	if len(parsed.CommandArgs) < 2 {
+	inputs, enableRDNS, keepExtract, parseErr := parseIngestArgs(parsed.CommandArgs[1:])
+	if parseErr != nil {
+		appErr := NewAppError(ErrUsage, parseErr.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+	if len(inputs) == 0 {
 		appErr := NewAppError(ErrUsage, "usage: netsec-sk ingest <paths...> [--repo <path>] [--env <env_id>] [--rdns] [--keep-extract]")
 		writeErrorLine(stderr, appErr)
 		return ExitCodeFor(appErr)
 	}
 
 	summary, err := ingestRun(ingest.RunOptions{
-		RepoPath: parsed.GlobalOptions.RepoPath,
-		EnvIDRaw: parsed.GlobalOptions.EnvID,
-		Inputs:   parsed.CommandArgs[1:],
+		RepoPath:    parsed.GlobalOptions.RepoPath,
+		EnvIDRaw:    parsed.GlobalOptions.EnvID,
+		Inputs:      inputs,
+		EnableRDNS:  enableRDNS,
+		KeepExtract: keepExtract,
 	})
 	if err != nil {
 		switch {
@@ -368,6 +376,27 @@ func runIngest(parsed ParseResult, stdout, stderr io.Writer) int {
 		return ExitCodeFor(NewAppError(ErrParsePart, "ingest completed with partial parse warnings"))
 	}
 	return 0
+}
+
+func parseIngestArgs(args []string) ([]string, bool, bool, error) {
+	paths := make([]string, 0, len(args))
+	enableRDNS := false
+	keepExtract := false
+
+	for _, arg := range args {
+		switch arg {
+		case "--rdns":
+			enableRDNS = true
+		case "--keep-extract":
+			keepExtract = true
+		default:
+			if strings.HasPrefix(arg, "--") {
+				return nil, false, false, fmt.Errorf("unknown ingest option: %s", arg)
+			}
+			paths = append(paths, arg)
+		}
+	}
+	return paths, enableRDNS, keepExtract, nil
 }
 
 func RunOpenSession(in io.Reader, out io.Writer, errOut io.Writer, globalArgs []string) int {
