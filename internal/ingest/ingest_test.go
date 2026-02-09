@@ -283,8 +283,8 @@ func TestArchiveExtractionSupportedFormats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
-	if summary.Attempted != 2 || summary.ParseErrorFatal != 0 || summary.SkippedStateUnchanged != 2 {
-		t.Fatalf("summary=%+v, want attempted=2 parse_error_fatal=0 skipped_state_unchanged=2", summary)
+	if summary.Attempted != 2 || summary.ParseErrorFatal != 0 || summary.SkippedStateUnchanged != 0 {
+		t.Fatalf("summary=%+v, want attempted=2 parse_error_fatal=0 skipped_state_unchanged=0", summary)
 	}
 
 	extractRoot := filepath.Join(repoPath, ".netsec-state", "extract")
@@ -360,8 +360,8 @@ func TestUnsupportedExtensionAccounting(t *testing.T) {
 	if summary.ParseErrorFatal != 2 {
 		t.Fatalf("parse_error_fatal=%d, want 2", summary.ParseErrorFatal)
 	}
-	if summary.SkippedStateUnchanged != 1 {
-		t.Fatalf("skipped_state_unchanged=%d, want 1", summary.SkippedStateUnchanged)
+	if summary.SkippedStateUnchanged != 0 {
+		t.Fatalf("skipped_state_unchanged=%d, want 0", summary.SkippedStateUnchanged)
 	}
 }
 
@@ -398,6 +398,93 @@ func TestRepoUnsafeStateBlocksIngest(t *testing.T) {
 	}
 	if err != repo.ErrRepoUnsafe {
 		t.Fatalf("Run() err=%v, want %v", err, repo.ErrRepoUnsafe)
+	}
+}
+
+func TestSnapshotPersistenceOnChange(t *testing.T) {
+	repoPath := t.TempDir()
+	if _, err := repo.Init(repoPath); err != nil {
+		t.Skipf("git unavailable for snapshot persistence test: %v", err)
+	}
+
+	dir := filepath.Join(repoPath, "inputs")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(dir, "fw.tgz")
+
+	if err := writeTGZ(archive, []tarEntry{{Name: "tmp/cli/fw.txt", Body: "firewall\nserial: S1\nhostname: fw1\nmgmt_ip: 10.0.0.1"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Unix(1_700_000_500, 0).UTC()
+	first, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archive},
+		Now:      now,
+	})
+	if err != nil {
+		t.Fatalf("Run(first) err=%v", err)
+	}
+	if first.Attempted != 1 || first.SkippedStateUnchanged != 0 || first.ParseErrorFatal != 0 {
+		t.Fatalf("first summary=%+v", first)
+	}
+
+	latest := filepath.Join(repoPath, "envs", "prod", "state", "devices", "S1", "latest.json")
+	if _, err := os.Stat(latest); err != nil {
+		t.Fatalf("missing latest.json: %v", err)
+	}
+	snapshotDir := filepath.Join(repoPath, "envs", "prod", "state", "devices", "S1", "snapshots")
+	entries, err := os.ReadDir(snapshotDir)
+	if err != nil {
+		t.Fatalf("read snapshots dir err=%v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("snapshot count=%d, want 1", len(entries))
+	}
+
+	second, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archive},
+		Now:      now.Add(1 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("Run(second same) err=%v", err)
+	}
+	if second.SkippedStateUnchanged != 1 {
+		t.Fatalf("second skipped_state_unchanged=%d, want 1", second.SkippedStateUnchanged)
+	}
+	entries, err = os.ReadDir(snapshotDir)
+	if err != nil {
+		t.Fatalf("read snapshots dir err=%v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("snapshot count after unchanged=%d, want 1", len(entries))
+	}
+
+	if err := writeTGZ(archive, []tarEntry{{Name: "tmp/cli/fw.txt", Body: "firewall\nserial: S1\nhostname: fw1-changed\nmgmt_ip: 10.0.0.1"}}); err != nil {
+		t.Fatal(err)
+	}
+	third, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archive},
+		Now:      now.Add(2 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("Run(third changed) err=%v", err)
+	}
+	if third.SkippedStateUnchanged != 0 || third.ParseErrorFatal != 0 {
+		t.Fatalf("third summary=%+v", third)
+	}
+	entries, err = os.ReadDir(snapshotDir)
+	if err != nil {
+		t.Fatalf("read snapshots dir err=%v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("snapshot count after changed=%d, want 2", len(entries))
 	}
 }
 

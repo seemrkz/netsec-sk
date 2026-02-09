@@ -72,7 +72,7 @@ Lane view:
 | LANE1 | LANE2 | LANE3 | LANE4 |
 |---|---|---|---|
 | ~~TASK-00023~~ | ~~TASK-00026~~ | TASK-00030 | TASK-00032 |
-| ~~TASK-00024~~ | TASK-00027 | TASK-00031 | TASK-00033 |
+| ~~TASK-00024~~ | ~~TASK-00027~~ | TASK-00031 | TASK-00033 |
 | ~~TASK-00025~~ | TASK-00028 |  |  |
 |  | TASK-00029 |  |  |
 
@@ -343,7 +343,7 @@ Every task section includes:
 
 - Objective: apply hash canonicalization, unchanged-state detection, and deterministic snapshot/latest file writes.
 - Spec refs: SPEC §4.1, §6.7, §7.4
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00026
 - Changelog requirement: Yes
@@ -372,9 +372,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] unchanged logical state is skipped with `skipped_state_unchanged`.
-- [ ] changed state writes deterministic snapshot/latest files.
-- [ ] hash behavior is stable across ordering differences.
+- [x] unchanged logical state is skipped with `skipped_state_unchanged`.
+- [x] changed state writes deterministic snapshot/latest files.
+- [x] hash behavior is stable across ordering differences.
 
 #### Verification (Proof Required)
 
@@ -397,7 +397,7 @@ Every task section includes:
 - Required commit message format: `TASK-00027: enforce state hashing and snapshot persistence`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00027: enforce state hashing and snapshot persistence`
 
 ### TASK-00028: Integrate RDNS enrichment for newly discovered firewalls
 

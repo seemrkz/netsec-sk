@@ -1,5 +1,21 @@
 # Changelog
 
+## TASK-00027
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Enforced canonical state hashing and integrated snapshot/latest persistence in ingest runtime with unchanged-state skipping based on logical state comparison.
+- Files:
+  - `internal/state/compare.go`
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `internal/cli/task12_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/state -run TestHashCanonicalization` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
+  - `go test ./internal/state -run TestUnchangedStateSkip` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
+  - `go test ./internal/ingest -run TestSnapshotPersistenceOnChange` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+
 ## TASK-00026
 
 - Date: 2026-02-09

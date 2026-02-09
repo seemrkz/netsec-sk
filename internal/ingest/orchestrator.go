@@ -16,6 +16,7 @@ import (
 	"github.com/seemrkz/netsec-sk/internal/env"
 	"github.com/seemrkz/netsec-sk/internal/parse"
 	"github.com/seemrkz/netsec-sk/internal/repo"
+	"github.com/seemrkz/netsec-sk/internal/state"
 	"github.com/seemrkz/netsec-sk/internal/tsf"
 )
 
@@ -115,13 +116,20 @@ func Run(options RunOptions) (Summary, error) {
 			summary.ParseErrorFatal++
 			continue
 		}
-		if out.Result == "parse_error_partial" {
-			summary.ParseErrorPartial++
+
+		latestPath, snapshotsDir := statePaths(options.RepoPath, prep.EnvID, string(out.EntityType), out.EntityID)
+		snapshotStamp := now.UTC().Format("20060102T150405Z")
+		unchanged, _, _, err := state.PersistIfChanged(out.Snapshot, latestPath, snapshotsDir, snapshotStamp)
+		if err != nil {
+			summary.ParseErrorFatal++
 			continue
 		}
-
-		// State persistence and commit semantics are applied in follow-up tasks.
-		summary.SkippedStateUnchanged++
+		if unchanged {
+			summary.SkippedStateUnchanged++
+		}
+		if out.Result == "parse_error_partial" {
+			summary.ParseErrorPartial++
+		}
 	}
 	return summary, nil
 }
@@ -306,6 +314,15 @@ func readExtractedFiles(extractDir string) (map[string]string, []string, error) 
 
 	sort.Strings(paths)
 	return files, paths, nil
+}
+
+func statePaths(repoPath string, envID string, entityType string, entityID string) (string, string) {
+	entityDir := "devices"
+	if entityType == "panorama" {
+		entityDir = "panorama"
+	}
+	base := filepath.Join(repoPath, "envs", envID, "state", entityDir, entityID)
+	return filepath.Join(base, "latest.json"), filepath.Join(base, "snapshots")
 }
 
 type IngestLogEntry struct {
