@@ -78,7 +78,7 @@ cli-repo-core  | ingest-parse  | state-export-ux
                |               | ~~TASK-00011~~
 ~~TASK-00012~~ |               |
 ~~TASK-00013~~ |               |
-TASK-00014     |               |
+~~TASK-00014~~ |               |
 ```
 
 ## 3. Task Registry
@@ -791,7 +791,7 @@ Every task section includes:
 
 - Objective: prevent recurrence by codifying command invocation-form compatibility in CLI + e2e tests.
 - Spec refs: SPEC §9.1, §9.4, §11
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00013
 - Changelog requirement: Yes

@@ -195,3 +195,17 @@
 - Verification:
   - `go test ./internal/cli -run TestGlobalFlags` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
   - `go test ./internal/cli -run TestGlobalFlagPlacementCompatibility` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+
+## TASK-00014
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Added regression coverage for command-first/global-after invocations in CLI command contracts, open-shell entry, and MVP e2e checklist.
+- Files:
+  - `internal/cli/task12_test.go`
+  - `e2e/mvp_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/cli -run TestCommandOutputContracts` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestOpenShellCommandSet` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./e2e -run TestMVPAcceptanceChecklist` -> `ok   github.com/seemrkz/netsec-sk/e2e`

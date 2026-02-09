@@ -10,11 +10,13 @@ import (
 func TestMVPAcceptanceChecklist(t *testing.T) {
 	repo := t.TempDir()
 	commands := [][]string{
+		{"init", "--repo", repo},
 		{"--repo", repo, "init"},
+		{"env", "create", "prod", "--repo", repo},
 		{"--repo", repo, "env", "create", "prod"},
-		{"--repo", repo, "--env", "prod", "env", "list"},
-		{"--repo", repo, "--env", "prod", "help"},
-		{"--repo", repo, "--env", "prod", "open"},
+		{"env", "list", "--repo", repo, "--env", "prod"},
+		{"help", "--repo", repo, "--env", "prod"},
+		{"open", "--repo", repo, "--env", "prod"},
 	}
 	for _, args := range commands {
 		var out, err bytes.Buffer
