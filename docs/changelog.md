@@ -106,3 +106,17 @@
 - Verification:
   - `go test ./internal/enrich -run TestRDNSOnlyForNewDevices` -> `ok   github.com/seemrkz/netsec-sk/internal/enrich`
   - `go test ./internal/enrich -run TestRDNSTimeoutRetry` -> `ok   github.com/seemrkz/netsec-sk/internal/enrich`
+
+## TASK-00008
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented canonical state normalization/hash and unchanged-state comparison against `latest.json`.
+- Files:
+  - `internal/state/hash.go`
+  - `internal/state/compare.go`
+  - `internal/state/state_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/state -run TestHashCanonicalization` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
+  - `go test ./internal/state -run TestUnchangedStateSkip` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
