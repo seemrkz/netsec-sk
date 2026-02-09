@@ -69,14 +69,12 @@ Lane Index:
 
 Lane view:
 
-```text
-LANE1              | LANE2               | LANE3            | LANE4
---------------------------------------------------------------------------
-TASK-00023         | TASK-00026          | TASK-00030       | TASK-00032
-TASK-00024         | TASK-00027          | TASK-00031       | TASK-00033
-TASK-00025         | TASK-00028          |                  |
-                   | TASK-00029          |                  |
-```
+| LANE1 | LANE2 | LANE3 | LANE4 |
+|---|---|---|---|
+| ~~TASK-00023~~ | TASK-00026 | TASK-00030 | TASK-00032 |
+| TASK-00024 | TASK-00027 | TASK-00031 | TASK-00033 |
+| TASK-00025 | TASK-00028 |  |  |
+|  | TASK-00029 |  |  |
 
 ## 3. Task Registry
 
@@ -105,7 +103,7 @@ Every task section includes:
 
 - Objective: wire `netsec-sk ingest` to the runtime orchestration path and remove static placeholder output.
 - Spec refs: SPEC §2.3, §6.1, §9.2, §9.4 (`ingest`)
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: none
 - Changelog requirement: Yes
@@ -133,9 +131,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] `ingest` no longer emits fixed zero-summary output.
-- [ ] summary values derive from real ingest attempt outcomes.
-- [ ] exit codes follow SPEC §9.2 ingest precedence.
+- [x] `ingest` no longer emits fixed zero-summary output.
+- [x] summary values derive from real ingest attempt outcomes.
+- [x] exit codes follow SPEC §9.2 ingest precedence.
 
 #### Verification (Proof Required)
 
@@ -157,7 +155,7 @@ Every task section includes:
 - Required commit message format: `TASK-00023: wire ingest command to runtime`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00023: wire ingest command to runtime`
 
 ### TASK-00024: Implement safe archive extraction and mixed-input accounting
 

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/seemrkz/netsec-sk/internal/ingest"
 )
 
 func TestGlobalFlags(t *testing.T) {
@@ -209,6 +211,10 @@ func TestEnvCommandOutputs(t *testing.T) {
 func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 	repoPath := t.TempDir()
 	var stdout, stderr bytes.Buffer
+	ingestPath := filepath.Join(repoPath, "a.tgz")
+	if err := os.WriteFile(ingestPath, []byte("archive"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	if code := Run([]string{"--repo", repoPath, "init"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("global-first init failed code=%d stderr=%q", code, stderr.String())
@@ -251,7 +257,7 @@ func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 		{"devices", "--repo", repoPath, "--env", "prod"},
 		{"panorama", "--repo", repoPath, "--env", "prod"},
 		{"topology", "--repo", repoPath, "--env", "prod"},
-		{"ingest", "a.tgz", "--repo", repoPath, "--env", "prod"},
+		{"ingest", ingestPath, "--repo", repoPath, "--env", "prod"},
 		{"export", "--repo", repoPath, "--env", "prod"},
 		{"show", "device", "id1", "--repo", repoPath, "--env", "prod"},
 		{"show", "panorama", "id2", "--repo", repoPath, "--env", "prod"},
@@ -273,5 +279,94 @@ func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 	}
 	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE ") {
 		t.Fatalf("invalid global flag stderr mismatch: %q", stderr.String())
+	}
+}
+
+func TestIngestCommandUsesRuntime(t *testing.T) {
+	original := ingestRun
+	defer func() { ingestRun = original }()
+
+	var gotOpts ingest.RunOptions
+	ingestRun = func(opts ingest.RunOptions) (ingest.Summary, error) {
+		gotOpts = opts
+		return ingest.Summary{
+			Attempted:             3,
+			Committed:             1,
+			SkippedDuplicateTSF:   1,
+			SkippedStateUnchanged: 1,
+		}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--repo", "/tmp/repo", "--env", "prod", "ingest", "a.tgz", "b.tar.gz", "c.tgz"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run(ingest) code=%d, want 0 stderr=%q", code, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("Run(ingest) stderr=%q, want empty", stderr.String())
+	}
+	if gotOpts.RepoPath != "/tmp/repo" || gotOpts.EnvIDRaw != "prod" {
+		t.Fatalf("runtime options mismatch: %#v", gotOpts)
+	}
+	if strings.Join(gotOpts.Inputs, ",") != "a.tgz,b.tar.gz,c.tgz" {
+		t.Fatalf("runtime inputs mismatch: %#v", gotOpts.Inputs)
+	}
+
+	want := "Ingest complete: attempted=3 committed=1 skipped_duplicate_tsf=1 skipped_state_unchanged=1 parse_error_partial=0 parse_error_fatal=0\n"
+	if stdout.String() != want {
+		t.Fatalf("Run(ingest) stdout=%q, want %q", stdout.String(), want)
+	}
+}
+
+func TestIngestExitCodePrecedence(t *testing.T) {
+	tests := []struct {
+		name string
+		out  ingest.Summary
+		want int
+	}{
+		{
+			name: "fatal takes precedence",
+			out: ingest.Summary{
+				Attempted:         1,
+				ParseErrorPartial: 1,
+				ParseErrorFatal:   1,
+			},
+			want: 6,
+		},
+		{
+			name: "partial when no fatal",
+			out: ingest.Summary{
+				Attempted:         1,
+				ParseErrorPartial: 1,
+			},
+			want: 7,
+		},
+		{
+			name: "success when no errors",
+			out: ingest.Summary{
+				Attempted: 1,
+				Committed: 1,
+			},
+			want: 0,
+		},
+	}
+
+	original := ingestRun
+	defer func() { ingestRun = original }()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ingestRun = func(opts ingest.RunOptions) (ingest.Summary, error) {
+				return tt.out, nil
+			}
+			var stdout, stderr bytes.Buffer
+			got := Run([]string{"ingest", "a.tgz"}, &stdout, &stderr)
+			if got != tt.want {
+				t.Fatalf("Run(ingest) code=%d, want %d stdout=%q stderr=%q", got, tt.want, stdout.String(), stderr.String())
+			}
+			if !strings.Contains(stdout.String(), "Ingest complete: attempted=1") {
+				t.Fatalf("summary line missing expected prefix: %q", stdout.String())
+			}
+		})
 	}
 }

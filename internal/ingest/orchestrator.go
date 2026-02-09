@@ -3,6 +3,7 @@ package ingest
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,52 @@ import (
 )
 
 const extractStaleAfter = 24 * time.Hour
+
+var ErrNoInputs = errors.New("ingest requires at least one input path")
+
+type Summary struct {
+	Attempted             int
+	Committed             int
+	SkippedDuplicateTSF   int
+	SkippedStateUnchanged int
+	ParseErrorPartial     int
+	ParseErrorFatal       int
+}
+
+type RunOptions struct {
+	RepoPath string
+	EnvIDRaw string
+	Inputs   []string
+	Now      time.Time
+}
+
+func Run(options RunOptions) (Summary, error) {
+	if len(options.Inputs) == 0 {
+		return Summary{}, ErrNoInputs
+	}
+
+	now := options.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	prep, err := Prepare(PrepareOptions{
+		RepoPath: options.RepoPath,
+		EnvIDRaw: options.EnvIDRaw,
+		Inputs:   options.Inputs,
+		Now:      now,
+	})
+	if err != nil {
+		return Summary{}, err
+	}
+
+	// Runtime entrypoint is active; per-attempt parse/persist behavior is added in later tasks.
+	summary := Summary{
+		Attempted:             len(prep.OrderedInputs),
+		SkippedStateUnchanged: len(prep.OrderedInputs),
+	}
+	return summary, nil
+}
 
 type PrepResult struct {
 	EnvID          string

@@ -1,5 +1,20 @@
 # Changelog
 
+## TASK-00023
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Replaced ingest placeholder output with a real runtime entrypoint, summary rendering from runtime results, and ingest exit-code precedence handling in CLI.
+- Files:
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `internal/cli/task12_test.go`
+  - `internal/ingest/orchestrator.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/cli -run TestIngestCommandUsesRuntime` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestIngestExitCodePrecedence` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+
 ## TASK-00001
 
 - Date: 2026-02-09

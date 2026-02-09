@@ -10,8 +10,10 @@ import (
 
 func TestCommandOutputContracts(t *testing.T) {
 	repo := t.TempDir()
+	ingestPath := filepath.Join(repo, "a.tgz")
 	devicePath := filepath.Join(repo, "envs", "default", "state", "devices", "id1")
 	panoPath := filepath.Join(repo, "envs", "default", "state", "panorama", "id2")
+	_ = os.WriteFile(ingestPath, []byte("archive"), 0o644)
 	_ = os.MkdirAll(devicePath, 0o755)
 	_ = os.MkdirAll(panoPath, 0o755)
 	_ = os.WriteFile(filepath.Join(devicePath, "latest.json"), []byte(`{"kind":"device"}`), 0o644)
@@ -44,8 +46,8 @@ func TestCommandOutputContracts(t *testing.T) {
 		{[]string{"topology", "--repo", repo}, "Topology edges: 0\nOrphan zones: 0\n", "exact"},
 		{[]string{"--repo", repo, "--env", "default", "export"}, "Export complete: default\n", "exact"},
 		{[]string{"export", "--repo", repo, "--env", "default"}, "Export complete: default\n", "exact"},
-		{[]string{"--repo", repo, "ingest", "a.tgz"}, "Ingest complete: attempted=0 committed=0 skipped_duplicate_tsf=0 skipped_state_unchanged=0 parse_error_partial=0 parse_error_fatal=0\n", "exact"},
-		{[]string{"ingest", "a.tgz", "--repo", repo}, "Ingest complete: attempted=0 committed=0 skipped_duplicate_tsf=0 skipped_state_unchanged=0 parse_error_partial=0 parse_error_fatal=0\n", "exact"},
+		{[]string{"--repo", repo, "ingest", ingestPath}, "Ingest complete: attempted=1 committed=0 skipped_duplicate_tsf=0 skipped_state_unchanged=1 parse_error_partial=0 parse_error_fatal=0\n", "exact"},
+		{[]string{"ingest", ingestPath, "--repo", repo}, "Ingest complete: attempted=1 committed=0 skipped_duplicate_tsf=0 skipped_state_unchanged=1 parse_error_partial=0 parse_error_fatal=0\n", "exact"},
 		{[]string{"--repo", repo, "show", "device", "id1"}, "\"kind\": \"device\"", "contains"},
 		{[]string{"show", "device", "id1", "--repo", repo}, "\"kind\": \"device\"", "contains"},
 		{[]string{"--repo", repo, "show", "panorama", "id2"}, "\"kind\": \"panorama\"", "contains"},
@@ -72,8 +74,10 @@ func TestCommandOutputContracts(t *testing.T) {
 
 func TestOpenShellCommandSet(t *testing.T) {
 	repo := t.TempDir()
+	ingestPath := filepath.Join(repo, "a.tgz")
 	devicePath := filepath.Join(repo, "envs", "default", "state", "devices", "id1")
 	panoPath := filepath.Join(repo, "envs", "default", "state", "panorama", "id2")
+	_ = os.WriteFile(ingestPath, []byte("archive"), 0o644)
 	_ = os.MkdirAll(devicePath, 0o755)
 	_ = os.MkdirAll(panoPath, 0o755)
 	_ = os.WriteFile(filepath.Join(devicePath, "latest.json"), []byte(`{"kind":"device"}`), 0o644)
@@ -87,7 +91,7 @@ func TestOpenShellCommandSet(t *testing.T) {
 		t.Fatalf("unexpected command-first open output: %q", directOut.String())
 	}
 
-	in := strings.NewReader("help\nenv list\nenv create dev\ndevices\npanorama\nshow device id1\nshow panorama id2\ntopology\nexport\ningest a.tgz\nquit\n")
+	in := strings.NewReader("help\nenv list\nenv create dev\ndevices\npanorama\nshow device id1\nshow panorama id2\ntopology\nexport\ningest " + ingestPath + "\nquit\n")
 	var out, err bytes.Buffer
 	code := RunOpenSession(in, &out, &err, []string{"--repo", repo, "--env", "default"})
 	if code != 0 {

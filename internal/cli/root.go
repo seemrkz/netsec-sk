@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/seemrkz/netsec-sk/internal/env"
+	"github.com/seemrkz/netsec-sk/internal/ingest"
 	"github.com/seemrkz/netsec-sk/internal/repo"
 )
 
@@ -29,6 +30,8 @@ type ParseResult struct {
 	GlobalOptions GlobalOptions
 	CommandArgs   []string
 }
+
+var ingestRun = ingest.Run
 
 func ParseGlobalFlags(args []string) (ParseResult, error) {
 	opts := GlobalOptions{
@@ -96,8 +99,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "env":
 		return runEnv(parsed, stdout, stderr)
 	case "ingest":
-		_, _ = fmt.Fprintln(stdout, "Ingest complete: attempted=0 committed=0 skipped_duplicate_tsf=0 skipped_state_unchanged=0 parse_error_partial=0 parse_error_fatal=0")
-		return 0
+		return runIngest(parsed, stdout, stderr)
 	case "export":
 		_, _ = fmt.Fprintf(stdout, "Export complete: %s\n", parsed.GlobalOptions.EnvID)
 		return 0
@@ -312,6 +314,51 @@ func runOpen(parsed ParseResult, stdout, stderr io.Writer) int {
 		return ExitCodeFor(appErr)
 	}
 	_, _ = fmt.Fprintf(stdout, "netsec-sk(env:%s)>\n", parsed.GlobalOptions.EnvID)
+	return 0
+}
+
+func runIngest(parsed ParseResult, stdout, stderr io.Writer) int {
+	if len(parsed.CommandArgs) < 2 {
+		appErr := NewAppError(ErrUsage, "usage: netsec-sk ingest <paths...> [--repo <path>] [--env <env_id>] [--rdns] [--keep-extract]")
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+
+	summary, err := ingestRun(ingest.RunOptions{
+		RepoPath: parsed.GlobalOptions.RepoPath,
+		EnvIDRaw: parsed.GlobalOptions.EnvID,
+		Inputs:   parsed.CommandArgs[1:],
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, ingest.ErrNoInputs):
+			appErr := NewAppError(ErrUsage, err.Error())
+			writeErrorLine(stderr, appErr)
+			return ExitCodeFor(appErr)
+		default:
+			appErr := NewAppError(ErrIO, err.Error())
+			writeErrorLine(stderr, appErr)
+			return ExitCodeFor(appErr)
+		}
+	}
+
+	_, _ = fmt.Fprintf(
+		stdout,
+		"Ingest complete: attempted=%d committed=%d skipped_duplicate_tsf=%d skipped_state_unchanged=%d parse_error_partial=%d parse_error_fatal=%d\n",
+		summary.Attempted,
+		summary.Committed,
+		summary.SkippedDuplicateTSF,
+		summary.SkippedStateUnchanged,
+		summary.ParseErrorPartial,
+		summary.ParseErrorFatal,
+	)
+
+	if summary.ParseErrorFatal > 0 {
+		return ExitCodeFor(NewAppError(ErrParseFatal, "ingest completed with fatal parse errors"))
+	}
+	if summary.ParseErrorPartial > 0 {
+		return ExitCodeFor(NewAppError(ErrParsePart, "ingest completed with partial parse warnings"))
+	}
 	return 0
 }
 
