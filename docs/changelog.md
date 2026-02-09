@@ -1,5 +1,18 @@
 # Changelog
 
+## TASK-00033
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Expanded e2e acceptance checklist coverage to validate ingest roundtrip, mixed-input accounting, commit guarantees, query/export behavior, open-shell resilience, and release verification execution.
+- Files:
+  - `e2e/mvp_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./e2e -run TestMVPAcceptanceChecklist` -> `ok   github.com/seemrkz/netsec-sk/e2e`
+  - `go test ./...` -> `ok` across all packages
+  - `./scripts/release/build_and_checksum.sh` -> exit `0`, artifacts generated in `dist/release` and checksums written to `dist/release/checksums.txt`
+
 ## TASK-00032
 
 - Date: 2026-02-09
