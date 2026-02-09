@@ -47,3 +47,18 @@
 - Verification:
   - `go test ./internal/env -run TestEnvIDValidation` -> `ok   github.com/seemrkz/netsec-sk/internal/env`
   - `go test ./internal/cli -run TestEnvCommandOutputs` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+
+## TASK-00004
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented ingest runtime skeleton for deterministic input ordering, lock stale/active handling, extract workspace lifecycle cleanup, and ingest-time environment auto-create.
+- Files:
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/lock.go`
+  - `internal/ingest/ingest_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/ingest -run TestInputOrdering` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/ingest -run TestLockStaleRules` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/ingest -run TestExtractCleanup` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`

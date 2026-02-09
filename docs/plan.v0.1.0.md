@@ -71,7 +71,7 @@ Lane view:
 LANE1          | LANE2         | LANE3
 cli-repo-core  | ingest-parse  | state-export-ux
 -----------------------------------------------
-~~TASK-00001~~ | TASK-00004    | TASK-00007
+~~TASK-00001~~ | ~~TASK-00004~~ | TASK-00007
 ~~TASK-00002~~ | TASK-00005    | TASK-00008
 ~~TASK-00003~~ | TASK-00006    | TASK-00009
                |               | TASK-00010
@@ -258,7 +258,7 @@ Every task section includes:
 
 - Objective: Build deterministic ingest runtime skeleton with ordering, lock semantics, and extraction lifecycle.
 - Spec refs: SPEC §3.4, §6.1, §6.2, §6.3, §9.4 (`ingest`)
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00001, TASK-00002, TASK-00003
 - Changelog requirement: Yes
