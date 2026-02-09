@@ -133,3 +133,17 @@
 - Verification:
   - `go test ./internal/topology -run TestInferSharedSubnetEdges` -> `ok   github.com/seemrkz/netsec-sk/internal/topology`
   - `go test ./internal/topology -run TestOverrideMerge` -> `ok   github.com/seemrkz/netsec-sk/internal/topology`
+
+## TASK-00010
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented deterministic export writers for `environment.json`, CSV outputs, Mermaid topology, and `agent_context.md` heading contract.
+- Files:
+  - `internal/export/writers.go`
+  - `internal/export/writers_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/export -run TestEnvironmentJSONSchema` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
+  - `go test ./internal/export -run TestCSVHeadersAndOrdering` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
+  - `go test ./internal/export -run TestAgentContextTemplate` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
