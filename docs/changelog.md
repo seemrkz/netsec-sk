@@ -62,3 +62,18 @@
   - `go test ./internal/ingest -run TestInputOrdering` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
   - `go test ./internal/ingest -run TestLockStaleRules` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
   - `go test ./internal/ingest -run TestExtractCleanup` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+
+## TASK-00005
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented TSF internal identity derivation and environment-scoped duplicate detection from `.netsec-state/ingest.ndjson`.
+- Files:
+  - `internal/tsf/identity.go`
+  - `internal/tsf/identity_test.go`
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/tsf -run TestIdentityDerivation` -> `ok   github.com/seemrkz/netsec-sk/internal/tsf`
+  - `go test ./internal/ingest -run TestDuplicateDetection` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`

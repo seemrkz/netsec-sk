@@ -1,11 +1,14 @@
 package ingest
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/seemrkz/netsec-sk/internal/tsf"
 )
 
 type fakeInspector struct {
@@ -152,5 +155,56 @@ func TestExtractCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(keepDir); err != nil {
 		t.Fatalf("expected kept extract dir to exist: %v", err)
+	}
+}
+
+func TestDuplicateDetection(t *testing.T) {
+	root := t.TempDir()
+	logPath := filepath.Join(root, "ingest.ndjson")
+
+	lines := []string{
+		`{"env_id":"prod","tsf_id":"SER001|PA-440_ts.tgz","result":"committed"}`,
+		`{"env_id":"dev","tsf_id":"SER001|PA-440_ts.tgz","result":"committed"}`,
+		`{"env_id":"prod","tsf_id":"unknown","result":"parse_error_fatal"}`,
+	}
+	if err := os.WriteFile(logPath, []byte(lines[0]+"\n"+lines[1]+"\n"+lines[2]+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	seen, err := ReadSeenTSFIDs(logPath, "prod")
+	if err != nil {
+		t.Fatalf("ReadSeenTSFIDs() unexpected error: %v", err)
+	}
+	if !IsDuplicateTSF("SER001|PA-440_ts.tgz", seen) {
+		t.Fatalf("expected duplicate for seen TSF ID")
+	}
+	if IsDuplicateTSF("unknown", seen) {
+		t.Fatalf("unknown TSF must not be treated as duplicate")
+	}
+	if IsDuplicateTSF("SER999|other_ts.tgz", seen) {
+		t.Fatalf("unexpected duplicate for unseen TSF ID")
+	}
+
+	readFile := func(path string) ([]byte, error) {
+		content := map[string]string{
+			"a/tmp/cli/PA-440_ts.tgz.txt": "serial: SER001",
+			"b/tmp/cli/PA-440_ts.tgz.txt": "serial: SER001",
+		}
+		v, ok := content[path]
+		if !ok {
+			return nil, fmt.Errorf("missing %s", path)
+		}
+		return []byte(v), nil
+	}
+
+	id1 := tsf.DeriveIdentity([]string{"a/tmp/cli/PA-440_ts.tgz.txt"}, readFile)
+	id2 := tsf.DeriveIdentity([]string{"b/tmp/cli/PA-440_ts.tgz.txt"}, readFile)
+	if id1.TSFID != id2.TSFID {
+		t.Fatalf("expected identity match for renamed archives: %q != %q", id1.TSFID, id2.TSFID)
+	}
+
+	seen[id1.TSFID] = struct{}{}
+	if !IsDuplicateTSF(id2.TSFID, seen) {
+		t.Fatalf("expected renamed archive to dedupe by internal identity")
 	}
 }

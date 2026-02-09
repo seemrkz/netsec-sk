@@ -1,6 +1,8 @@
 package ingest
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -168,4 +170,53 @@ func sanitizePathPart(in string) string {
 		":", "_",
 	)
 	return replacer.Replace(in)
+}
+
+type IngestLogEntry struct {
+	EnvID string `json:"env_id"`
+	TSFID string `json:"tsf_id"`
+}
+
+func ReadSeenTSFIDs(ingestLogPath string, envID string) (map[string]struct{}, error) {
+	out := make(map[string]struct{})
+
+	f, err := os.Open(ingestLogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return out, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		var entry IngestLogEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			return nil, err
+		}
+
+		if entry.EnvID != envID || entry.TSFID == "" {
+			continue
+		}
+		out[entry.TSFID] = struct{}{}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func IsDuplicateTSF(tsfID string, seen map[string]struct{}) bool {
+	if tsfID == "unknown" || tsfID == "" {
+		return false
+	}
+	_, ok := seen[tsfID]
+	return ok
 }
