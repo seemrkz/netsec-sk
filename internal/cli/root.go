@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+
+	"github.com/seemrkz/netsec-sk/internal/repo"
 )
 
 const (
@@ -52,9 +55,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return ExitCodeFor(err)
 	}
 
-	err = NewAppError(ErrInternal, fmt.Sprintf("command not yet implemented: %s", parsed.CommandArgs[0]))
-	writeErrorLine(stderr, err)
-	return ExitCodeFor(err)
+	switch parsed.CommandArgs[0] {
+	case "init":
+		return runInit(parsed, stdout, stderr)
+	default:
+		err = NewAppError(ErrInternal, fmt.Sprintf("command not yet implemented: %s", parsed.CommandArgs[0]))
+		writeErrorLine(stderr, err)
+		return ExitCodeFor(err)
+	}
 }
 
 func writeErrorLine(w io.Writer, err error) {
@@ -63,4 +71,30 @@ func writeErrorLine(w io.Writer, err error) {
 	}
 
 	_, _ = fmt.Fprintln(w, FormatErrorLine(err))
+}
+
+func runInit(parsed ParseResult, stdout, stderr io.Writer) int {
+	if len(parsed.CommandArgs) != 1 {
+		err := NewAppError(ErrUsage, "init does not accept positional arguments")
+		writeErrorLine(stderr, err)
+		return ExitCodeFor(err)
+	}
+
+	absRepoPath, err := repo.Init(parsed.GlobalOptions.RepoPath)
+	if err != nil {
+		appErr := mapInitError(err)
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+
+	_, _ = fmt.Fprintf(stdout, "Initialized repository: %s\n", absRepoPath)
+	return 0
+}
+
+func mapInitError(err error) error {
+	if errors.Is(err, repo.ErrGitMissing) {
+		return NewAppError(ErrGitMissing, "git executable is not available on PATH")
+	}
+
+	return NewAppError(ErrIO, err.Error())
 }
