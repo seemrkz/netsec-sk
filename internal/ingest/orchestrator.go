@@ -13,11 +13,17 @@ import (
 
 	"github.com/seemrkz/netsec-sk/internal/enrich"
 	"github.com/seemrkz/netsec-sk/internal/env"
+	"github.com/seemrkz/netsec-sk/internal/repo"
 )
 
 const extractStaleAfter = 24 * time.Hour
 
 var ErrNoInputs = errors.New("ingest requires at least one input path")
+var checkRepoSafe = repo.CheckSafeWorkingTree
+var acquireRunLock = AcquireLock
+var releaseRunLock = ReleaseLock
+var currentPID = os.Getpid
+var currentProcessInspector LockInspector = ProcessInspector{}
 
 type Summary struct {
 	Attempted             int
@@ -44,6 +50,17 @@ func Run(options RunOptions) (Summary, error) {
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
+
+	if err := checkRepoSafe(options.RepoPath); err != nil {
+		return Summary{}, err
+	}
+
+	if _, err := acquireRunLock(options.RepoPath, now, currentPID(), "ingest", currentProcessInspector); err != nil {
+		return Summary{}, err
+	}
+	defer func() {
+		_ = releaseRunLock(options.RepoPath)
+	}()
 
 	prep, err := Prepare(PrepareOptions{
 		RepoPath: options.RepoPath,

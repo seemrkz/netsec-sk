@@ -1,5 +1,23 @@
 # Changelog
 
+## TASK-00025
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Enforced ingest repo unsafe-state gate, integrated lock acquire/release in runtime lifecycle, and mapped ingest repo/lock errors to CLI error codes.
+- Files:
+  - `internal/repo/git_check.go`
+  - `internal/ingest/lock.go`
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/ingest -run TestRepoUnsafeStateBlocksIngest` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/ingest -run TestLockStaleRules` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/cli -run TestIngestErrorCodeMapping` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+
 ## TASK-00024
 
 - Date: 2026-02-09

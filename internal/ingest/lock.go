@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -49,11 +52,18 @@ func AcquireLock(repoPath string, now time.Time, pid int, command string, inspec
 	}
 
 	lock := LockFile{
-		PID:           pid,
-		StartedAtUTC:  now.UTC().Format(time.RFC3339),
-		StartedAtUnix: now.UTC().Unix(),
-		Command:       command,
+		PID:     pid,
+		Command: command,
 	}
+	startedAtUnix := now.UTC().Unix()
+	if inspector != nil {
+		if unix, ok := inspector.ProcessStartUnix(pid); ok {
+			startedAtUnix = unix
+		}
+	}
+	lock.StartedAtUnix = startedAtUnix
+	lock.StartedAtUTC = time.Unix(startedAtUnix, 0).UTC().Format(time.RFC3339)
+
 	encoded, err := json.Marshal(lock)
 	if err != nil {
 		return nil, err
@@ -109,4 +119,25 @@ func ReadLock(repoPath string) (LockFile, error) {
 		return LockFile{}, fmt.Errorf("decode lock: %w", err)
 	}
 	return out, nil
+}
+
+type ProcessInspector struct{}
+
+func (ProcessInspector) ProcessStartUnix(pid int) (int64, bool) {
+	cmd := exec.Command("ps", "-o", "lstart=", "-p", strconv.Itoa(pid))
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, false
+	}
+
+	start := strings.TrimSpace(string(out))
+	if start == "" {
+		return 0, false
+	}
+
+	parsed, err := time.ParseInLocation("Mon Jan _2 15:04:05 2006", start, time.Local)
+	if err != nil {
+		return 0, false
+	}
+	return parsed.Unix(), true
 }

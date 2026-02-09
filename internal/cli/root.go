@@ -335,6 +335,14 @@ func runIngest(parsed ParseResult, stdout, stderr io.Writer) int {
 			appErr := NewAppError(ErrUsage, err.Error())
 			writeErrorLine(stderr, appErr)
 			return ExitCodeFor(appErr)
+		case errors.Is(err, repo.ErrRepoUnsafe):
+			appErr := NewAppError(ErrRepoUnsafe, err.Error())
+			writeErrorLine(stderr, appErr)
+			return ExitCodeFor(appErr)
+		case errors.Is(err, ingest.ErrLockHeld):
+			appErr := NewAppError(ErrLockHeld, err.Error())
+			writeErrorLine(stderr, appErr)
+			return ExitCodeFor(appErr)
 		default:
 			appErr := NewAppError(ErrIO, err.Error())
 			writeErrorLine(stderr, appErr)

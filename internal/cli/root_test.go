@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/seemrkz/netsec-sk/internal/ingest"
+	"github.com/seemrkz/netsec-sk/internal/repo"
 )
 
 func TestGlobalFlags(t *testing.T) {
@@ -366,6 +367,51 @@ func TestIngestExitCodePrecedence(t *testing.T) {
 			}
 			if !strings.Contains(stdout.String(), "Ingest complete: attempted=1") {
 				t.Fatalf("summary line missing expected prefix: %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestIngestErrorCodeMapping(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantCode   int
+		wantPrefix string
+	}{
+		{
+			name:       "repo unsafe",
+			err:        repo.ErrRepoUnsafe,
+			wantCode:   4,
+			wantPrefix: "ERROR E_REPO_UNSAFE ",
+		},
+		{
+			name:       "lock held",
+			err:        ingest.ErrLockHeld,
+			wantCode:   5,
+			wantPrefix: "ERROR E_LOCK_HELD ",
+		},
+	}
+
+	original := ingestRun
+	defer func() { ingestRun = original }()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ingestRun = func(opts ingest.RunOptions) (ingest.Summary, error) {
+				return ingest.Summary{}, tt.err
+			}
+
+			var stdout, stderr bytes.Buffer
+			code := Run([]string{"ingest", "a.tgz"}, &stdout, &stderr)
+			if code != tt.wantCode {
+				t.Fatalf("Run(ingest) code=%d, want %d stderr=%q", code, tt.wantCode, stderr.String())
+			}
+			if stdout.String() != "" {
+				t.Fatalf("Run(ingest) stdout=%q, want empty", stdout.String())
+			}
+			if !strings.HasPrefix(stderr.String(), tt.wantPrefix) {
+				t.Fatalf("Run(ingest) stderr=%q, want prefix %q", stderr.String(), tt.wantPrefix)
 			}
 		})
 	}

@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/seemrkz/netsec-sk/internal/repo"
 	"github.com/seemrkz/netsec-sk/internal/tsf"
 )
 
@@ -360,6 +362,42 @@ func TestUnsupportedExtensionAccounting(t *testing.T) {
 	}
 	if summary.SkippedStateUnchanged != 1 {
 		t.Fatalf("skipped_state_unchanged=%d, want 1", summary.SkippedStateUnchanged)
+	}
+}
+
+func TestRepoUnsafeStateBlocksIngest(t *testing.T) {
+	repoPath := t.TempDir()
+	if _, err := repo.Init(repoPath); err != nil {
+		t.Skipf("git unavailable for repo unsafe test: %v", err)
+	}
+
+	tracked := filepath.Join(repoPath, "tracked.txt")
+	if err := os.WriteFile(tracked, []byte("v1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "-C", repoPath, "add", "tracked.txt").Run(); err != nil {
+		t.Fatalf("git add tracked failed: %v", err)
+	}
+	if err := os.WriteFile(tracked, []byte("v2"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	archivePath := filepath.Join(repoPath, "a.tgz")
+	if err := writeTGZ(archivePath, []tarEntry{{Name: "tmp/cli/a.txt", Body: "ok"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archivePath},
+		Now:      time.Unix(1_700_000_400, 0).UTC(),
+	})
+	if err == nil {
+		t.Fatal("expected unsafe repo error, got nil")
+	}
+	if err != repo.ErrRepoUnsafe {
+		t.Fatalf("Run() err=%v, want %v", err, repo.ErrRepoUnsafe)
 	}
 }
 
