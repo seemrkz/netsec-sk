@@ -1,5 +1,21 @@
 # Changelog
 
+## TASK-00026
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Integrated TSF identity derivation and parse taxonomy into ingest runtime, classifying extracted archives into fatal/partial/non-fatal outcomes using minimum parse mapping.
+- Files:
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `internal/parse/parse_test.go`
+  - `internal/cli/archive_test_helpers_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/tsf -run TestIdentityDerivation` -> `ok   github.com/seemrkz/netsec-sk/internal/tsf`
+  - `go test ./internal/parse -run TestPrototypeMinimumFields` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`
+  - `go test ./internal/parse -run TestParseErrorClassification` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`
+
 ## TASK-00025
 
 - Date: 2026-02-09

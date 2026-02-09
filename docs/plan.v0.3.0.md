@@ -71,7 +71,7 @@ Lane view:
 
 | LANE1 | LANE2 | LANE3 | LANE4 |
 |---|---|---|---|
-| ~~TASK-00023~~ | TASK-00026 | TASK-00030 | TASK-00032 |
+| ~~TASK-00023~~ | ~~TASK-00026~~ | TASK-00030 | TASK-00032 |
 | ~~TASK-00024~~ | TASK-00027 | TASK-00031 | TASK-00033 |
 | ~~TASK-00025~~ | TASK-00028 |  |  |
 |  | TASK-00029 |  |  |
@@ -282,7 +282,7 @@ Every task section includes:
 
 - Objective: derive identity from extracted TSF metadata and apply deterministic parse taxonomy for firewall/panorama snapshots.
 - Spec refs: SPEC §6.4, §6.5, §6.6, §6.10, §7.1, §7.2, §7.3
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00024
 - Changelog requirement: Yes
@@ -312,9 +312,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] identity derivation follows tmp/cli candidate rules exactly.
-- [ ] missing minimum identity fields are fatal.
-- [ ] partial parse still writes required snapshot scaffolding.
+- [x] identity derivation follows tmp/cli candidate rules exactly.
+- [x] missing minimum identity fields are fatal.
+- [x] partial parse still writes required snapshot scaffolding.
 
 #### Verification (Proof Required)
 
@@ -337,7 +337,7 @@ Every task section includes:
 - Required commit message format: `TASK-00026: integrate identity and parse taxonomy in runtime`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00026: integrate identity and parse taxonomy in runtime`
 
 ### TASK-00027: Enforce canonical state hashing and snapshot persistence semantics
 

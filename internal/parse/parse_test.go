@@ -75,3 +75,27 @@ func TestParseErrorClassification(t *testing.T) {
 		t.Fatalf("result = %q, want parse_error_partial", out.Result)
 	}
 }
+
+func TestPrototypeMinimumFields(t *testing.T) {
+	ctx := ParseContext{TSFID: "S1|fw.tgz", TSFOriginalName: "fw.tgz", InputArchiveName: "fw.tgz", IngestedAtUTC: "2026-02-09T00:00:00Z"}
+
+	_, err := ParseSnapshot(ctx, map[string]string{"a.txt": "firewall\nhostname: fw1\nmgmt_ip: 10.0.0.1"})
+	if err == nil {
+		t.Fatal("expected fatal when minimum firewall identity fields are missing")
+	}
+
+	out, err := ParseSnapshot(ctx, map[string]string{"a.txt": "firewall\nserial: F2"})
+	if err != nil {
+		t.Fatalf("unexpected error for partial parse: %v", err)
+	}
+	if out.Result != "parse_error_partial" {
+		t.Fatalf("result = %q, want parse_error_partial", out.Result)
+	}
+	if out.Snapshot["snapshot_version"] != 1 || out.Snapshot["source"] == nil || out.Snapshot["state_sha256"] == nil {
+		t.Fatalf("partial parse missing required snapshot envelope: %#v", out.Snapshot)
+	}
+	device := out.Snapshot["device"].(map[string]any)
+	if device["id"] != "F2" || device["serial"] != "F2" {
+		t.Fatalf("partial parse missing required identity fields: %#v", device)
+	}
+}

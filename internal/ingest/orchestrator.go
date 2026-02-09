@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,7 +14,9 @@ import (
 
 	"github.com/seemrkz/netsec-sk/internal/enrich"
 	"github.com/seemrkz/netsec-sk/internal/env"
+	"github.com/seemrkz/netsec-sk/internal/parse"
 	"github.com/seemrkz/netsec-sk/internal/repo"
+	"github.com/seemrkz/netsec-sk/internal/tsf"
 )
 
 const extractStaleAfter = 24 * time.Hour
@@ -88,15 +91,36 @@ func Run(options RunOptions) (Summary, error) {
 		}
 
 		extractErr := ExtractArchive(input, extractDir)
-		if finishErr := FinishTSFExtractDir(extractDir, false); finishErr != nil {
-			// Cleanup warnings are non-fatal by spec; continue with extract outcome.
-		}
 		if extractErr != nil {
+			_ = FinishTSFExtractDir(extractDir, false)
 			summary.ParseErrorFatal++
 			continue
 		}
 
-		// Parse/persist pipeline lands in follow-up tasks; successful archive attempts remain non-fatal.
+		fileContents, extractedPaths, err := readExtractedFiles(extractDir)
+		_ = FinishTSFExtractDir(extractDir, false)
+		if err != nil {
+			summary.ParseErrorFatal++
+			continue
+		}
+
+		identity := tsf.DeriveIdentity(extractedPaths, os.ReadFile)
+		out, err := parse.ParseSnapshot(parse.ParseContext{
+			TSFID:            identity.TSFID,
+			TSFOriginalName:  identity.TSFOriginalName,
+			InputArchiveName: filepath.Base(input),
+			IngestedAtUTC:    now.UTC().Format(time.RFC3339),
+		}, fileContents)
+		if err != nil || out.Result == "parse_error_fatal" {
+			summary.ParseErrorFatal++
+			continue
+		}
+		if out.Result == "parse_error_partial" {
+			summary.ParseErrorPartial++
+			continue
+		}
+
+		// State persistence and commit semantics are applied in follow-up tasks.
 		summary.SkippedStateUnchanged++
 	}
 	return summary, nil
@@ -253,6 +277,35 @@ func sanitizePathPart(in string) string {
 		":", "_",
 	)
 	return replacer.Replace(in)
+}
+
+func readExtractedFiles(extractDir string) (map[string]string, []string, error) {
+	files := make(map[string]string)
+	paths := make([]string, 0)
+
+	err := filepath.WalkDir(extractDir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		clean := filepath.Clean(path)
+		content, err := os.ReadFile(clean)
+		if err != nil {
+			return err
+		}
+		files[clean] = string(content)
+		paths = append(paths, clean)
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sort.Strings(paths)
+	return files, paths, nil
 }
 
 type IngestLogEntry struct {

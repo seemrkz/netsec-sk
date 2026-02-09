@@ -267,10 +267,10 @@ func TestArchiveExtractionSupportedFormats(t *testing.T) {
 
 	tgzPath := filepath.Join(dir, "a.tgz")
 	tarGzPath := filepath.Join(dir, "b.tar.gz")
-	if err := writeTGZ(tgzPath, []tarEntry{{Name: "tmp/cli/a.txt", Body: "a"}}); err != nil {
+	if err := writeTGZ(tgzPath, []tarEntry{{Name: "tmp/cli/a.txt", Body: "firewall\nserial: A1\nhostname: fw-a\nmgmt_ip: 10.0.0.1"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeTGZ(tarGzPath, []tarEntry{{Name: "tmp/cli/b.txt", Body: "b"}}); err != nil {
+	if err := writeTGZ(tarGzPath, []tarEntry{{Name: "tmp/cli/b.txt", Body: "panorama\nserial: P1\nhostname: p1\nmgmt_ip: 10.0.0.2"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -335,7 +335,7 @@ func TestUnsupportedExtensionAccounting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := writeTGZ(filepath.Join(dir, "good.tgz"), []tarEntry{{Name: "tmp/cli/good.txt", Body: "ok"}}); err != nil {
+	if err := writeTGZ(filepath.Join(dir, "good.tgz"), []tarEntry{{Name: "tmp/cli/good.txt", Body: "firewall\nserial: G1\nhostname: fw-g\nmgmt_ip: 10.0.0.3"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "skip.txt"), []byte("txt"), 0o644); err != nil {
