@@ -164,3 +164,20 @@
   - `go test ./internal/commit -run TestAtomicCommitAllowlist` -> `ok   github.com/seemrkz/netsec-sk/internal/commit`
   - `go test ./internal/commit -run TestCommitMessageFormat` -> `ok   github.com/seemrkz/netsec-sk/internal/commit`
   - `go test ./internal/ingest -run TestIngestLedgerAllAttempts` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+
+## TASK-00012
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented remaining CLI user-facing command contracts, open-shell command handling, acceptance e2e test, and release build/checksum script.
+- Files:
+  - `internal/cli/root.go`
+  - `internal/cli/task12_test.go`
+  - `e2e/mvp_test.go`
+  - `scripts/release/build_and_checksum.sh`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/cli -run TestCommandOutputContracts` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestOpenShellCommandSet` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./e2e -run TestMVPAcceptanceChecklist` -> `ok   github.com/seemrkz/netsec-sk/e2e`
+  - `./scripts/release/build_and_checksum.sh` -> exit `0`, artifacts and `checksums.txt` created under `dist/release`

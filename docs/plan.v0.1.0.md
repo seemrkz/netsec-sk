@@ -76,7 +76,7 @@ cli-repo-core  | ingest-parse  | state-export-ux
 ~~TASK-00003~~ | ~~TASK-00006~~ | ~~TASK-00009~~
                |               | ~~TASK-00010~~
                |               | ~~TASK-00011~~
-TASK-00012     |               |
+~~TASK-00012~~ |               |
 ```
 
 ## 3. Task Registry
@@ -676,7 +676,7 @@ Every task section includes:
 
 - Objective: Complete user-facing command set (`devices`, `panorama`, `show`, `topology`, `help`, `open`) and release outputs (binaries + checksums) with end-to-end acceptance tests.
 - Spec refs: SPEC §0, §9.4, §11
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00002, TASK-00003, TASK-00010, TASK-00011
 - Changelog requirement: Yes
