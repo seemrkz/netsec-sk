@@ -75,7 +75,7 @@ cli-repo-core  | ingest-parse  | state-export-ux
 ~~TASK-00002~~ | ~~TASK-00005~~ | ~~TASK-00008~~
 ~~TASK-00003~~ | ~~TASK-00006~~ | ~~TASK-00009~~
                |               | ~~TASK-00010~~
-               |               | TASK-00011
+               |               | ~~TASK-00011~~
 TASK-00012     |               |
 ```
 
@@ -623,7 +623,7 @@ Every task section includes:
 
 - Objective: Persist snapshots + exports and create one atomic commit per changed TSF with strict file allowlist.
 - Spec refs: SPEC §3.3, §10.1, §10.2, §10.3, §10.4
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00005, TASK-00008, TASK-00010
 - Changelog requirement: Yes

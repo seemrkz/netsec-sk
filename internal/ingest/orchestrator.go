@@ -174,8 +174,16 @@ func sanitizePathPart(in string) string {
 }
 
 type IngestLogEntry struct {
-	EnvID string `json:"env_id"`
-	TSFID string `json:"tsf_id"`
+	AttemptedAtUTC   string `json:"attempted_at_utc,omitempty"`
+	RunID            string `json:"run_id,omitempty"`
+	EnvID            string `json:"env_id"`
+	InputArchivePath string `json:"input_archive_path,omitempty"`
+	TSFID            string `json:"tsf_id,omitempty"`
+	EntityType       string `json:"entity_type,omitempty"`
+	EntityID         string `json:"entity_id,omitempty"`
+	Result           string `json:"result,omitempty"`
+	GitCommit        string `json:"git_commit,omitempty"`
+	Notes            string `json:"notes,omitempty"`
 }
 
 func ReadSeenTSFIDs(ingestLogPath string, envID string) (map[string]struct{}, error) {
@@ -220,6 +228,24 @@ func IsDuplicateTSF(tsfID string, seen map[string]struct{}) bool {
 	}
 	_, ok := seen[tsfID]
 	return ok
+}
+
+func AppendIngestAttempt(path string, entry IngestLogEntry) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	b, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(b, '\n'))
+	return err
 }
 
 func ApplyRDNS(enabled bool, isNewDevice bool, mgmtIP string, now time.Time, lookup enrich.LookupFunc) (enrich.ReverseDNS, bool) {

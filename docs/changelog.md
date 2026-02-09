@@ -147,3 +147,20 @@
   - `go test ./internal/export -run TestEnvironmentJSONSchema` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
   - `go test ./internal/export -run TestCSVHeadersAndOrdering` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
   - `go test ./internal/export -run TestAgentContextTemplate` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
+
+## TASK-00011
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented commit allowlist/subject builders plus ingest and commit NDJSON ledger appenders.
+- Files:
+  - `internal/commit/committer.go`
+  - `internal/commit/committer_test.go`
+  - `internal/state/commits_ledger.go`
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/commit -run TestAtomicCommitAllowlist` -> `ok   github.com/seemrkz/netsec-sk/internal/commit`
+  - `go test ./internal/commit -run TestCommitMessageFormat` -> `ok   github.com/seemrkz/netsec-sk/internal/commit`
+  - `go test ./internal/ingest -run TestIngestLedgerAllAttempts` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`

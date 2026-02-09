@@ -1,6 +1,8 @@
 package ingest
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -206,5 +208,46 @@ func TestDuplicateDetection(t *testing.T) {
 	seen[id1.TSFID] = struct{}{}
 	if !IsDuplicateTSF(id2.TSFID, seen) {
 		t.Fatalf("expected renamed archive to dedupe by internal identity")
+	}
+}
+
+func TestIngestLedgerAllAttempts(t *testing.T) {
+	root := t.TempDir()
+	logPath := filepath.Join(root, ".netsec-state", "ingest.ndjson")
+
+	entries := []IngestLogEntry{
+		{AttemptedAtUTC: "2026-02-09T00:00:00Z", RunID: "run-1", EnvID: "prod", InputArchivePath: "/x/a.tgz", TSFID: "A|a.tgz", Result: "committed", GitCommit: "abc"},
+		{AttemptedAtUTC: "2026-02-09T00:01:00Z", RunID: "run-1", EnvID: "prod", InputArchivePath: "/x/b.tgz", TSFID: "A|a.tgz", Result: "skipped_duplicate_tsf"},
+		{AttemptedAtUTC: "2026-02-09T00:02:00Z", RunID: "run-1", EnvID: "prod", InputArchivePath: "/x/c.tgz", TSFID: "unknown", Result: "parse_error_fatal", Notes: "unsupported_extension"},
+	}
+	for _, e := range entries {
+		if err := AppendIngestAttempt(logPath, e); err != nil {
+			t.Fatalf("AppendIngestAttempt() err=%v", err)
+		}
+	}
+
+	f, err := os.Open(logPath)
+	if err != nil {
+		t.Fatalf("open ingest log err=%v", err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	count := 0
+	for scanner.Scan() {
+		count++
+		var got IngestLogEntry
+		if err := json.Unmarshal(scanner.Bytes(), &got); err != nil {
+			t.Fatalf("invalid ndjson row: %v", err)
+		}
+		if got.EnvID != "prod" || got.Result == "" || got.RunID != "run-1" {
+			t.Fatalf("missing required fields in row %#v", got)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("scan err=%v", err)
+	}
+	if count != len(entries) {
+		t.Fatalf("row count=%d, want %d", count, len(entries))
 	}
 }
