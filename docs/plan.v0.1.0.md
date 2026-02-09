@@ -73,7 +73,7 @@ cli-repo-core  | ingest-parse  | state-export-ux
 -----------------------------------------------
 ~~TASK-00001~~ | ~~TASK-00004~~ | ~~TASK-00007~~
 ~~TASK-00002~~ | ~~TASK-00005~~ | ~~TASK-00008~~
-~~TASK-00003~~ | ~~TASK-00006~~ | TASK-00009
+~~TASK-00003~~ | ~~TASK-00006~~ | ~~TASK-00009~~
                |               | TASK-00010
                |               | TASK-00011
 TASK-00012     |               |
@@ -518,7 +518,7 @@ Every task section includes:
 
 - Objective: Build VR-aware IPv4 topology edges and merge optional override files.
 - Spec refs: SPEC §2.2 (IPv4-only), §8.4, §8.5
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00006, TASK-00008
 - Changelog requirement: Yes

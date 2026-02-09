@@ -120,3 +120,16 @@
 - Verification:
   - `go test ./internal/state -run TestHashCanonicalization` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
   - `go test ./internal/state -run TestUnchangedStateSkip` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
+
+## TASK-00009
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented IPv4-only, VR-aware shared-subnet topology inference and deterministic override merge as `manual_override` edges.
+- Files:
+  - `internal/topology/infer.go`
+  - `internal/topology/infer_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/topology -run TestInferSharedSubnetEdges` -> `ok   github.com/seemrkz/netsec-sk/internal/topology`
+  - `go test ./internal/topology -run TestOverrideMerge` -> `ok   github.com/seemrkz/netsec-sk/internal/topology`
