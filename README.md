@@ -6,9 +6,9 @@ Git-backed repo for change tracking and analysis.
 
 ## Status
 
-- Project phase: spec and planning completed; implementation tasks are defined.
-- Canonical spec: `docs/spec.v0.5.0.md`
-- Implementation plan: `docs/plan.v0.1.0.md`
+- Project phase: prototype-focused spec and implementation planning completed; build tasks are defined.
+- Canonical spec: `docs/spec.v0.5.1.md`
+- Implementation plan: `docs/plan.v0.3.0.md`
 - Constitution/governance: `docs/AGENTS.md`
 - Legacy draft spec (superseded): `docs/netsec-sk_mvp_spec_v0.4.md`
 
@@ -57,4 +57,4 @@ Runtime state repo layout (created/managed by CLI):
 
 - Git is a hard requirement for ingest flows.
 - MVP topology inference is IPv4-only and VR-aware.
-- No production code is implemented yet in this repository.
+- Prototype code scaffolding exists; ingest-to-state runtime is being completed under `docs/plan.v0.3.0.md`.
