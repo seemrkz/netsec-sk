@@ -17,6 +17,8 @@ related:
 
 # NetSec StateKit — Implementation Plan v0.2.0
 
+> Superseded by `./plan.v0.3.0.md` on 2026-02-09. Kept for historical traceability only.
+
 This plan is constrained to `./spec.v0.5.1.md` and `./AGENTS.md`.
 
 ## 0. Plan Guardrails (Mandatory)

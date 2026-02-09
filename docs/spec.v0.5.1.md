@@ -11,7 +11,7 @@ review_rounds_completed: 3
 project_state: "prototype_ready_for_build"
 related:
   constitution: "./AGENTS.md"
-  plan_target: "./plan.v0.2.0.md"
+  plan_target: "./plan.v0.3.0.md"
 ---
 
 # NetSec StateKit (`netsec-sk`) MVP Specification v0.5.1
@@ -23,6 +23,7 @@ related:
 - Implementation language: Go
 - Distribution for MVP: manual GitHub Releases binaries + checksums
 - This document is the canonical deterministic spec for planning and implementation.
+- Active implementation plan target: `./plan.v0.3.0.md`
 
 ## 1) Purpose
 
