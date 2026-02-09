@@ -77,3 +77,18 @@
 - Verification:
   - `go test ./internal/tsf -run TestIdentityDerivation` -> `ok   github.com/seemrkz/netsec-sk/internal/tsf`
   - `go test ./internal/ingest -run TestDuplicateDetection` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+
+## TASK-00006
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented firewall and panorama parser skeletons with deterministic classifier and partial/fatal parse taxonomy boundaries.
+- Files:
+  - `internal/parse/classifier.go`
+  - `internal/parse/snapshots.go`
+  - `internal/parse/parse_test.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/parse -run TestFirewallSnapshotRequiredFields` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`
+  - `go test ./internal/parse -run TestPanoramaSnapshotRequiredFields` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`
+  - `go test ./internal/parse -run TestParseErrorClassification` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`

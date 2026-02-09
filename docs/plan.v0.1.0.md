@@ -73,7 +73,7 @@ cli-repo-core  | ingest-parse  | state-export-ux
 -----------------------------------------------
 ~~TASK-00001~~ | ~~TASK-00004~~ | TASK-00007
 ~~TASK-00002~~ | ~~TASK-00005~~ | TASK-00008
-~~TASK-00003~~ | TASK-00006    | TASK-00009
+~~TASK-00003~~ | ~~TASK-00006~~ | TASK-00009
                |               | TASK-00010
                |               | TASK-00011
 TASK-00012     |               |
@@ -363,7 +363,7 @@ Every task section includes:
 
 - Objective: Build facts-only parsers for firewall and Panorama snapshots with deterministic error classification.
 - Spec refs: SPEC §6.6, §7.1, §7.2, §7.3
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00004
 - Changelog requirement: Yes
