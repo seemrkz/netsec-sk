@@ -72,7 +72,7 @@ Lane view:
 | LANE1 | LANE2 | LANE3 | LANE4 |
 |---|---|---|---|
 | ~~TASK-00023~~ | ~~TASK-00026~~ | ~~TASK-00030~~ | TASK-00032 |
-| ~~TASK-00024~~ | ~~TASK-00027~~ | TASK-00031 | TASK-00033 |
+| ~~TASK-00024~~ | ~~TASK-00027~~ | ~~TASK-00031~~ | TASK-00033 |
 | ~~TASK-00025~~ | ~~TASK-00028~~ |  |  |
 |  | ~~TASK-00029~~ |  |  |
 
@@ -586,7 +586,7 @@ Every task section includes:
 
 - Objective: make query commands read persisted state/exports and satisfy output contracts.
 - Spec refs: SPEC §8.4, §8.5, §9.4 (`devices`, `panorama`, `show`, `topology`)
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00030
 - Changelog requirement: Yes
@@ -614,9 +614,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] devices/panorama tables include real rows sorted by entity ID.
-- [ ] show returns pretty JSON from state latest files.
-- [ ] topology count lines reflect generated topology data.
+- [x] devices/panorama tables include real rows sorted by entity ID.
+- [x] show returns pretty JSON from state latest files.
+- [x] topology count lines reflect generated topology data.
 
 #### Verification (Proof Required)
 
@@ -639,7 +639,7 @@ Every task section includes:
 - Required commit message format: `TASK-00031: back query commands with persisted state`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00031: back query commands with persisted state`
 
 ### TASK-00032: Complete `open` shell semantics and help contract parity
 

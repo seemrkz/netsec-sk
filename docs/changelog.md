@@ -1,5 +1,20 @@
 # Changelog
 
+## TASK-00031
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Backed `devices`, `panorama`, and `topology` commands with persisted state/export data while keeping `show` on pretty-printed latest snapshots.
+- Files:
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `internal/cli/task12_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/cli -run TestCommandOutputContracts` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestQueryCommandsFromPersistedState` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/topology -run TestInferSharedSubnetEdges` -> `ok   github.com/seemrkz/netsec-sk/internal/topology`
+
 ## TASK-00030
 
 - Date: 2026-02-09

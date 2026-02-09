@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -112,9 +113,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "show":
 		return runShow(parsed, stdout, stderr)
 	case "topology":
-		_, _ = fmt.Fprintln(stdout, "Topology edges: 0")
-		_, _ = fmt.Fprintln(stdout, "Orphan zones: 0")
-		return 0
+		return runTopology(parsed, stdout, stderr)
 	case "help":
 		return runHelp(parsed, stdout, stderr)
 	case "open":
@@ -237,6 +236,15 @@ func runDevices(parsed ParseResult, stdout, stderr io.Writer) int {
 	}
 
 	_, _ = fmt.Fprintln(stdout, "DEVICE_ID\tHOSTNAME\tMODEL\tSW_VERSION\tMGMT_IP")
+	rows, err := listDeviceRows(parsed.GlobalOptions.RepoPath, parsed.GlobalOptions.EnvID)
+	if err != nil {
+		appErr := NewAppError(ErrIO, err.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+	for _, r := range rows {
+		_, _ = fmt.Fprintf(stdout, "%s\t%s\t%s\t%s\t%s\n", r.ID, r.Hostname, r.Model, r.Version, r.MgmtIP)
+	}
 	return 0
 }
 
@@ -248,6 +256,15 @@ func runPanorama(parsed ParseResult, stdout, stderr io.Writer) int {
 	}
 
 	_, _ = fmt.Fprintln(stdout, "PANORAMA_ID\tHOSTNAME\tMODEL\tVERSION\tMGMT_IP")
+	rows, err := listPanoramaRows(parsed.GlobalOptions.RepoPath, parsed.GlobalOptions.EnvID)
+	if err != nil {
+		appErr := NewAppError(ErrIO, err.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+	for _, r := range rows {
+		_, _ = fmt.Fprintf(stdout, "%s\t%s\t%s\t%s\t%s\n", r.ID, r.Hostname, r.Model, r.Version, r.MgmtIP)
+	}
 	return 0
 }
 
@@ -399,6 +416,23 @@ func runExport(parsed ParseResult, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runTopology(parsed ParseResult, stdout, stderr io.Writer) int {
+	if len(parsed.CommandArgs) != 1 {
+		appErr := NewAppError(ErrUsage, "usage: netsec-sk topology [--repo <path>] [--env <env_id>]")
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+	edges, orphans, err := topologyCounts(parsed.GlobalOptions.RepoPath, parsed.GlobalOptions.EnvID)
+	if err != nil {
+		appErr := NewAppError(ErrIO, err.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+	_, _ = fmt.Fprintf(stdout, "Topology edges: %d\n", edges)
+	_, _ = fmt.Fprintf(stdout, "Orphan zones: %d\n", orphans)
+	return 0
+}
+
 func parseIngestArgs(args []string) ([]string, bool, bool, error) {
 	paths := make([]string, 0, len(args))
 	enableRDNS := false
@@ -471,4 +505,185 @@ func setGlobalFlag(opts *GlobalOptions, name string, value string) {
 	case "--env":
 		opts.EnvID = value
 	}
+}
+
+type deviceRow struct {
+	ID       string
+	Hostname string
+	Model    string
+	Version  string
+	MgmtIP   string
+}
+
+func listDeviceRows(repoPath, envID string) ([]deviceRow, error) {
+	root := filepath.Join(repoPath, "envs", envID, "state", "devices")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	rows := make([]deviceRow, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		id := e.Name()
+		doc, err := readLatestDoc(filepath.Join(root, id, "latest.json"))
+		if err != nil {
+			return nil, err
+		}
+		device, _ := doc["device"].(map[string]any)
+		rowID := strField(device["id"])
+		if rowID == "" {
+			rowID = id
+		}
+		rows = append(rows, deviceRow{
+			ID:       rowID,
+			Hostname: strField(device["hostname"]),
+			Model:    strField(device["model"]),
+			Version:  strField(device["sw_version"]),
+			MgmtIP:   strField(device["mgmt_ip"]),
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
+	return rows, nil
+}
+
+func listPanoramaRows(repoPath, envID string) ([]deviceRow, error) {
+	root := filepath.Join(repoPath, "envs", envID, "state", "panorama")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	rows := make([]deviceRow, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		id := e.Name()
+		doc, err := readLatestDoc(filepath.Join(root, id, "latest.json"))
+		if err != nil {
+			return nil, err
+		}
+		inst, _ := doc["panorama_instance"].(map[string]any)
+		rowID := strField(inst["id"])
+		if rowID == "" {
+			rowID = id
+		}
+		rows = append(rows, deviceRow{
+			ID:       rowID,
+			Hostname: strField(inst["hostname"]),
+			Model:    strField(inst["model"]),
+			Version:  strField(inst["version"]),
+			MgmtIP:   strField(inst["mgmt_ip"]),
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
+	return rows, nil
+}
+
+func readLatestDoc(path string) (map[string]any, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+func topologyCounts(repoPath, envID string) (int, int, error) {
+	edgesPath := filepath.Join(repoPath, "envs", envID, "exports", "edges.csv")
+	nodesPath := filepath.Join(repoPath, "envs", envID, "exports", "nodes.csv")
+
+	edgeCount, connectedZones, err := readEdges(edgesPath)
+	if err != nil {
+		return 0, 0, err
+	}
+	allZones, err := readZoneNodes(nodesPath)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	orphanCount := 0
+	for zone := range allZones {
+		if _, ok := connectedZones[zone]; !ok {
+			orphanCount++
+		}
+	}
+	return edgeCount, orphanCount, nil
+}
+
+func readEdges(path string) (int, map[string]struct{}, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, map[string]struct{}{}, nil
+		}
+		return 0, nil, err
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	rows, err := r.ReadAll()
+	if err != nil {
+		return 0, nil, err
+	}
+	if len(rows) == 0 {
+		return 0, map[string]struct{}{}, nil
+	}
+	connected := map[string]struct{}{}
+	for _, row := range rows[1:] {
+		if len(row) < 4 {
+			continue
+		}
+		if strings.HasPrefix(row[2], "zone_") {
+			connected[row[2]] = struct{}{}
+		}
+		if strings.HasPrefix(row[3], "zone_") {
+			connected[row[3]] = struct{}{}
+		}
+	}
+	return len(rows) - 1, connected, nil
+}
+
+func readZoneNodes(path string) (map[string]struct{}, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]struct{}{}, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	rows, err := r.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]struct{}{}
+	for _, row := range rows[1:] {
+		if len(row) < 2 {
+			continue
+		}
+		if row[1] == "zone" {
+			out[row[0]] = struct{}{}
+		}
+	}
+	return out, nil
+}
+
+func strField(v any) string {
+	s, _ := v.(string)
+	return s
 }

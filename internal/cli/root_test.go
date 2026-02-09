@@ -490,3 +490,79 @@ func TestExportCommandContract(t *testing.T) {
 		t.Fatalf("unexpected usage stderr: %q", stderr.String())
 	}
 }
+
+func TestQueryCommandsFromPersistedState(t *testing.T) {
+	repoPath := t.TempDir()
+	envID := "prod"
+
+	deviceA := filepath.Join(repoPath, "envs", envID, "state", "devices", "b-id")
+	deviceB := filepath.Join(repoPath, "envs", envID, "state", "devices", "a-id")
+	panoA := filepath.Join(repoPath, "envs", envID, "state", "panorama", "p2")
+	panoB := filepath.Join(repoPath, "envs", envID, "state", "panorama", "p1")
+	for _, p := range []string{deviceA, deviceB, panoA, panoB} {
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(deviceA, "latest.json"), []byte(`{"device":{"id":"b-id","hostname":"fw-b","model":"PA-440","sw_version":"11.0.1","mgmt_ip":"10.0.0.2"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(deviceB, "latest.json"), []byte(`{"device":{"id":"a-id","hostname":"fw-a","model":"PA-220","sw_version":"11.0.0","mgmt_ip":"10.0.0.1"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(panoA, "latest.json"), []byte(`{"panorama_instance":{"id":"p2","hostname":"pano-b","model":"M-200","version":"11.0.1","mgmt_ip":"10.1.0.2"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(panoB, "latest.json"), []byte(`{"panorama_instance":{"id":"p1","hostname":"pano-a","model":"M-100","version":"11.0.0","mgmt_ip":"10.1.0.1"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	exports := filepath.Join(repoPath, "envs", envID, "exports")
+	if err := os.MkdirAll(exports, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	edgesCSV := "edge_id,edge_type,src_node_id,dst_node_id,src_device_id,src_zone,src_interface,src_vr,dst_device_id,dst_zone,dst_interface,dst_vr,evidence,source\n" +
+		"e1,shared_subnet,zone_a_id_trust,zone_b_id_inside,a-id,trust,eth1,vr1,b-id,inside,eth2,vr1,,inferred\n"
+	nodesCSV := "node_id,node_type,env_id,device_id,panorama_id,zone,virtual_router,label\n" +
+		"zone_a_id_trust,zone,prod,a-id,,trust,vr1,a-id:trust\n" +
+		"zone_b_id_inside,zone,prod,b-id,,inside,vr1,b-id:inside\n" +
+		"zone_orphan,zone,prod,a-id,,dmz,vr1,a-id:dmz\n"
+	if err := os.WriteFile(filepath.Join(exports, "edges.csv"), []byte(edgesCSV), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(exports, "nodes.csv"), []byte(nodesCSV), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "devices"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("devices code=%d stderr=%q", code, stderr.String())
+	}
+	wantDevices := "DEVICE_ID\tHOSTNAME\tMODEL\tSW_VERSION\tMGMT_IP\n" +
+		"a-id\tfw-a\tPA-220\t11.0.0\t10.0.0.1\n" +
+		"b-id\tfw-b\tPA-440\t11.0.1\t10.0.0.2\n"
+	if stdout.String() != wantDevices {
+		t.Fatalf("devices output mismatch:\n%s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "panorama"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("panorama code=%d stderr=%q", code, stderr.String())
+	}
+	wantPanorama := "PANORAMA_ID\tHOSTNAME\tMODEL\tVERSION\tMGMT_IP\n" +
+		"p1\tpano-a\tM-100\t11.0.0\t10.1.0.1\n" +
+		"p2\tpano-b\tM-200\t11.0.1\t10.1.0.2\n"
+	if stdout.String() != wantPanorama {
+		t.Fatalf("panorama output mismatch:\n%s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "topology"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("topology code=%d stderr=%q", code, stderr.String())
+	}
+	if stdout.String() != "Topology edges: 1\nOrphan zones: 1\n" {
+		t.Fatalf("topology output mismatch: %q", stdout.String())
+	}
+}
