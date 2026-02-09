@@ -71,7 +71,7 @@ Lane view:
 
 | LANE1 | LANE2 | LANE3 | LANE4 |
 |---|---|---|---|
-| ~~TASK-00023~~ | ~~TASK-00026~~ | ~~TASK-00030~~ | TASK-00032 |
+| ~~TASK-00023~~ | ~~TASK-00026~~ | ~~TASK-00030~~ | ~~TASK-00032~~ |
 | ~~TASK-00024~~ | ~~TASK-00027~~ | ~~TASK-00031~~ | TASK-00033 |
 | ~~TASK-00025~~ | ~~TASK-00028~~ |  |  |
 |  | ~~TASK-00029~~ |  |  |
@@ -645,7 +645,7 @@ Every task section includes:
 
 - Objective: enforce shell session rules and help output contracts, including one-shot/in-shell parity.
 - Spec refs: SPEC §2.3, §9.3, §9.4 (`help`, `open`)
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00023, TASK-00031
 - Changelog requirement: Yes
@@ -674,9 +674,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] shell remains active after non-fatal command error.
-- [ ] prompt and exit behavior match spec.
-- [ ] help outputs satisfy command contract requirements.
+- [x] shell remains active after non-fatal command error.
+- [x] prompt and exit behavior match spec.
+- [x] help outputs satisfy command contract requirements.
 
 #### Verification (Proof Required)
 
@@ -699,7 +699,7 @@ Every task section includes:
 - Required commit message format: `TASK-00032: enforce open shell and help contract parity`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00032: enforce open shell and help contract parity`
 
 ### TASK-00033: Build end-to-end acceptance matrix and release verification coverage
 

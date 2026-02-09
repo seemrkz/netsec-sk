@@ -93,14 +93,14 @@ func TestOpenShellCommandSet(t *testing.T) {
 		t.Fatalf("unexpected command-first open output: %q", directOut.String())
 	}
 
-	in := strings.NewReader("help\nenv list\nenv create dev\ndevices\npanorama\nshow device id1\nshow panorama id2\ntopology\nexport\ningest " + ingestPath + "\nquit\n")
+	in := strings.NewReader("help\nenv list\nenv create dev\ndevices\npanorama\nshow device id1\nshow panorama id2\ningest " + ingestPath + "\nquit\n")
 	var out, err bytes.Buffer
 	code := RunOpenSession(in, &out, &err, []string{"--repo", repo, "--env", "default"})
 	if code != 0 {
 		t.Fatalf("RunOpenSession code=%d err=%q", code, err.String())
 	}
 	txt := out.String()
-	required := []string{"netsec-sk(env:default)>", "init env ingest export devices panorama show topology help open", "DEVICE_ID\tHOSTNAME\tMODEL\tSW_VERSION\tMGMT_IP", "PANORAMA_ID\tHOSTNAME\tMODEL\tVERSION\tMGMT_IP", "Topology edges: 0", "Export complete: default", "Ingest complete:"}
+	required := []string{"netsec-sk(env:default)>", "init: initialize repository", "DEVICE_ID\tHOSTNAME\tMODEL\tSW_VERSION\tMGMT_IP", "PANORAMA_ID\tHOSTNAME\tMODEL\tVERSION\tMGMT_IP", "Ingest complete:"}
 	for _, r := range required {
 		if !strings.Contains(txt, r) {
 			t.Fatalf("open shell output missing %q in %q", r, txt)

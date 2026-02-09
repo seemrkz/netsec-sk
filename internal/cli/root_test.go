@@ -491,6 +491,55 @@ func TestExportCommandContract(t *testing.T) {
 	}
 }
 
+func TestOpenShellContinuesAfterError(t *testing.T) {
+	repo := t.TempDir()
+	initGitRepoForTests(t, repo)
+	_ = os.MkdirAll(filepath.Join(repo, "envs", "default", "state", "devices", "id1"), 0o755)
+	_ = os.WriteFile(filepath.Join(repo, "envs", "default", "state", "devices", "id1", "latest.json"), []byte(`{"device":{"id":"id1","hostname":"fw1","model":"PA-440","sw_version":"11.0.0","mgmt_ip":"10.0.0.1"}}`), 0o644)
+
+	in := strings.NewReader("show device missing-id\ndevices\nquit\n")
+	var out, errOut bytes.Buffer
+	code := RunOpenSession(in, &out, &errOut, []string{"--repo", repo, "--env", "default"})
+	if code != 0 {
+		t.Fatalf("RunOpenSession code=%d, want 0", code)
+	}
+	if !strings.Contains(errOut.String(), "ERROR E_IO ") {
+		t.Fatalf("expected command error in shell stderr, got %q", errOut.String())
+	}
+	if !strings.Contains(out.String(), "DEVICE_ID\tHOSTNAME\tMODEL\tSW_VERSION\tMGMT_IP") {
+		t.Fatalf("shell did not continue to next command after error, out=%q", out.String())
+	}
+}
+
+func TestHelpCommandContracts(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"help"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("help code=%d stderr=%q", code, stderr.String())
+	}
+	required := []string{
+		"init: initialize repository",
+		"env: list/create environments",
+		"ingest: ingest TSF archives into state",
+		"open: interactive shell",
+	}
+	for _, r := range required {
+		if !strings.Contains(stdout.String(), r) {
+			t.Fatalf("help missing %q in %q", r, stdout.String())
+		}
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"help", "ingest"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("help ingest code=%d stderr=%q", code, stderr.String())
+	}
+	for _, label := range []string{"Usage: netsec-sk ingest", "Arguments:", "Examples:", "Exit codes:"} {
+		if !strings.Contains(stdout.String(), label) {
+			t.Fatalf("help ingest missing %q in %q", label, stdout.String())
+		}
+	}
+}
+
 func TestQueryCommandsFromPersistedState(t *testing.T) {
 	repoPath := t.TempDir()
 	envID := "prod"

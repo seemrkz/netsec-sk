@@ -1,5 +1,20 @@
 # Changelog
 
+## TASK-00032
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Enforced `open` shell command-set/continue-on-error semantics and expanded help outputs to satisfy usage/arguments/examples/exit-code contract parity.
+- Files:
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `internal/cli/task12_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/cli -run TestOpenShellCommandSet` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestOpenShellContinuesAfterError` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestHelpCommandContracts` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+
 ## TASK-00031
 
 - Date: 2026-02-09

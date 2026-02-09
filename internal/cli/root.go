@@ -318,11 +318,21 @@ func runHelp(parsed ParseResult, stdout, stderr io.Writer) int {
 	}
 
 	if len(parsed.CommandArgs) == 1 {
-		_, _ = fmt.Fprintln(stdout, "init env ingest export devices panorama show topology help open")
+		_, _ = fmt.Fprintln(stdout, "init: initialize repository")
+		_, _ = fmt.Fprintln(stdout, "env: list/create environments")
+		_, _ = fmt.Fprintln(stdout, "ingest: ingest TSF archives into state")
+		_, _ = fmt.Fprintln(stdout, "export: generate deterministic export artifacts")
+		_, _ = fmt.Fprintln(stdout, "devices: list persisted firewall inventory")
+		_, _ = fmt.Fprintln(stdout, "panorama: list persisted panorama inventory")
+		_, _ = fmt.Fprintln(stdout, "show: pretty-print latest snapshot by id")
+		_, _ = fmt.Fprintln(stdout, "topology: print topology edge/orphan counts")
+		_, _ = fmt.Fprintln(stdout, "help: show command usage details")
+		_, _ = fmt.Fprintln(stdout, "open: interactive shell")
 		return 0
 	}
 	cmd := parsed.CommandArgs[1]
-	_, _ = fmt.Fprintf(stdout, "Usage: netsec-sk %s\nArguments: see spec\nExamples: netsec-sk %s\nExit codes: see spec\n", cmd, cmd)
+	usage, argsLine, example := helpDetails(cmd)
+	_, _ = fmt.Fprintf(stdout, "Usage: %s\nArguments: %s\nExamples: %s\nExit codes: see spec\n", usage, argsLine, example)
 	return 0
 }
 
@@ -475,9 +485,14 @@ func RunOpenSession(in io.Reader, out io.Writer, errOut io.Writer, globalArgs []
 			return 0
 		}
 		args := strings.Fields(line)
+		if !isOpenSupported(args) {
+			writeErrorLine(errOut, NewAppError(ErrUsage, "open supports: help, env list|create, ingest, devices, panorama, show device|panorama, exit, quit"))
+			continue
+		}
 		exit := Run(append(globalArgs, args...), out, errOut)
 		if exit != 0 {
-			return exit
+			// Open shell must continue after non-fatal command errors.
+			continue
 		}
 	}
 }
@@ -504,6 +519,49 @@ func setGlobalFlag(opts *GlobalOptions, name string, value string) {
 		opts.RepoPath = value
 	case "--env":
 		opts.EnvID = value
+	}
+}
+
+func helpDetails(cmd string) (usage string, arguments string, example string) {
+	switch cmd {
+	case "init":
+		return "netsec-sk init [--repo <path>]", "none", "netsec-sk init --repo ./default"
+	case "env":
+		return "netsec-sk env <list|create> [args]", "list | create <env_id>", "netsec-sk env create prod"
+	case "ingest":
+		return "netsec-sk ingest <paths...> [--repo <path>] [--env <env_id>] [--rdns] [--keep-extract]", "<paths...> plus optional flags", "netsec-sk ingest ./fixtures --env prod --rdns"
+	case "export":
+		return "netsec-sk export [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk export --env prod"
+	case "devices":
+		return "netsec-sk devices [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk devices --env prod"
+	case "panorama":
+		return "netsec-sk panorama [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk panorama --env prod"
+	case "show":
+		return "netsec-sk show <device|panorama> <id> [--repo <path>] [--env <env_id>]", "<device|panorama> <id>", "netsec-sk show device SER123 --env prod"
+	case "topology":
+		return "netsec-sk topology [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk topology --env prod"
+	case "open":
+		return "netsec-sk open [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk open --env prod"
+	case "help":
+		return "netsec-sk help [command]", "[command] optional", "netsec-sk help ingest"
+	default:
+		return "netsec-sk help [command]", "[command] optional", "netsec-sk help"
+	}
+}
+
+func isOpenSupported(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	switch args[0] {
+	case "help", "devices", "panorama", "ingest", "exit", "quit":
+		return true
+	case "env":
+		return len(args) >= 2 && (args[1] == "list" || args[1] == "create")
+	case "show":
+		return len(args) >= 3 && (args[1] == "device" || args[1] == "panorama")
+	default:
+		return false
 	}
 }
 
