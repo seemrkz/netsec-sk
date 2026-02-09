@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	exportpkg "github.com/seemrkz/netsec-sk/internal/export"
 	"github.com/seemrkz/netsec-sk/internal/ingest"
 	"github.com/seemrkz/netsec-sk/internal/repo"
 )
@@ -451,5 +452,41 @@ func TestIngestFlagParsingAndPassThrough(t *testing.T) {
 	}
 	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE unknown ingest option: --bad-opt") {
 		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestExportCommandContract(t *testing.T) {
+	original := exportRun
+	defer func() { exportRun = original }()
+
+	var got exportpkg.RunOptions
+	exportRun = func(opts exportpkg.RunOptions) error {
+		got = opts
+		return nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--repo", "/tmp/repo", "--env", "prod", "export"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run(export) code=%d stderr=%q", code, stderr.String())
+	}
+	if stdout.String() != "Export complete: prod\n" {
+		t.Fatalf("Run(export) stdout=%q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("Run(export) stderr=%q", stderr.String())
+	}
+	if got.RepoPath != "/tmp/repo" || got.EnvID != "prod" {
+		t.Fatalf("unexpected export options: %+v", got)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Run([]string{"export", "extra"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("Run(export extra) code=%d want 2", code)
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE usage: netsec-sk export") {
+		t.Fatalf("unexpected usage stderr: %q", stderr.String())
 	}
 }

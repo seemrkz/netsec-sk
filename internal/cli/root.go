@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/seemrkz/netsec-sk/internal/env"
+	exportpkg "github.com/seemrkz/netsec-sk/internal/export"
 	"github.com/seemrkz/netsec-sk/internal/ingest"
 	"github.com/seemrkz/netsec-sk/internal/repo"
 )
@@ -32,6 +34,7 @@ type ParseResult struct {
 }
 
 var ingestRun = ingest.Run
+var exportRun = exportpkg.Run
 
 func ParseGlobalFlags(args []string) (ParseResult, error) {
 	opts := GlobalOptions{
@@ -101,8 +104,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "ingest":
 		return runIngest(parsed, stdout, stderr)
 	case "export":
-		_, _ = fmt.Fprintf(stdout, "Export complete: %s\n", parsed.GlobalOptions.EnvID)
-		return 0
+		return runExport(parsed, stdout, stderr)
 	case "devices":
 		return runDevices(parsed, stdout, stderr)
 	case "panorama":
@@ -375,6 +377,25 @@ func runIngest(parsed ParseResult, stdout, stderr io.Writer) int {
 	if summary.ParseErrorPartial > 0 {
 		return ExitCodeFor(NewAppError(ErrParsePart, "ingest completed with partial parse warnings"))
 	}
+	return 0
+}
+
+func runExport(parsed ParseResult, stdout, stderr io.Writer) int {
+	if len(parsed.CommandArgs) != 1 {
+		appErr := NewAppError(ErrUsage, "usage: netsec-sk export [--repo <path>] [--env <env_id>]")
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+	if err := exportRun(exportpkg.RunOptions{
+		RepoPath: parsed.GlobalOptions.RepoPath,
+		EnvID:    parsed.GlobalOptions.EnvID,
+		Now:      time.Now().UTC(),
+	}); err != nil {
+		appErr := NewAppError(ErrIO, err.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+	_, _ = fmt.Fprintf(stdout, "Export complete: %s\n", parsed.GlobalOptions.EnvID)
 	return 0
 }
 

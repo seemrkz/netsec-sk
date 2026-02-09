@@ -71,7 +71,7 @@ Lane view:
 
 | LANE1 | LANE2 | LANE3 | LANE4 |
 |---|---|---|---|
-| ~~TASK-00023~~ | ~~TASK-00026~~ | TASK-00030 | TASK-00032 |
+| ~~TASK-00023~~ | ~~TASK-00026~~ | ~~TASK-00030~~ | TASK-00032 |
 | ~~TASK-00024~~ | ~~TASK-00027~~ | TASK-00031 | TASK-00033 |
 | ~~TASK-00025~~ | ~~TASK-00028~~ |  |  |
 |  | ~~TASK-00029~~ |  |  |
@@ -524,7 +524,7 @@ Every task section includes:
 
 - Objective: generate all required export files deterministically from persisted state/topology and wire `export` command output.
 - Spec refs: SPEC §8.1, §8.2, §8.3, §8.4, §8.5, §8.6, §9.4 (`export`)
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00027, TASK-00029
 - Changelog requirement: Yes
@@ -554,9 +554,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] all six export files are generated deterministically.
-- [ ] CSV headers/order match spec exactly.
-- [ ] export command output matches contract.
+- [x] all six export files are generated deterministically.
+- [x] CSV headers/order match spec exactly.
+- [x] export command output matches contract.
 
 #### Verification (Proof Required)
 
@@ -580,7 +580,7 @@ Every task section includes:
 - Required commit message format: `TASK-00030: implement deterministic export pipeline and command`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00030: implement deterministic export pipeline and command`
 
 ### TASK-00031: Implement query command backends for devices/panorama/show/topology
 

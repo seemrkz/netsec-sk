@@ -1,5 +1,21 @@
 # Changelog
 
+## TASK-00030
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Implemented deterministic export artifact pipeline and wired the `export` CLI command to generate all required files under `envs/<env>/exports`.
+- Files:
+  - `internal/export/pipeline.go`
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/export -run TestEnvironmentJSONSchema` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
+  - `go test ./internal/export -run TestCSVHeadersAndOrdering` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
+  - `go test ./internal/export -run TestAgentContextTemplate` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
+  - `go test ./internal/cli -run TestExportCommandContract` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+
 ## TASK-00029
 
 - Date: 2026-02-09
