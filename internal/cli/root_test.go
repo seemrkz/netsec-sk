@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +29,23 @@ func TestGlobalFlags(t *testing.T) {
 
 	t.Run("overrides", func(t *testing.T) {
 		got, err := ParseGlobalFlags([]string{"--repo", "/tmp/repo", "--env", "dev", "ingest"})
+		if err != nil {
+			t.Fatalf("ParseGlobalFlags() unexpected error: %v", err)
+		}
+
+		if got.GlobalOptions.RepoPath != "/tmp/repo" {
+			t.Fatalf("repo override mismatch: got %q", got.GlobalOptions.RepoPath)
+		}
+		if got.GlobalOptions.EnvID != "dev" {
+			t.Fatalf("env override mismatch: got %q", got.GlobalOptions.EnvID)
+		}
+		if len(got.CommandArgs) != 1 || got.CommandArgs[0] != "ingest" {
+			t.Fatalf("command args mismatch: got %#v", got.CommandArgs)
+		}
+	})
+
+	t.Run("command first with trailing globals", func(t *testing.T) {
+		got, err := ParseGlobalFlags([]string{"ingest", "--repo", "/tmp/repo", "--env", "dev"})
 		if err != nil {
 			t.Fatalf("ParseGlobalFlags() unexpected error: %v", err)
 		}
@@ -185,5 +203,75 @@ func TestEnvCommandOutputs(t *testing.T) {
 		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 			t.Fatalf("expected directory %s to exist", dir)
 		}
+	}
+}
+
+func TestGlobalFlagPlacementCompatibility(t *testing.T) {
+	repoPath := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	if code := Run([]string{"--repo", repoPath, "init"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("global-first init failed code=%d stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Initialized repository: ") {
+		t.Fatalf("unexpected init stdout: %q", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"init", "--repo", repoPath}, &stdout, &stderr); code != 0 {
+		t.Fatalf("command-first init failed code=%d stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Initialized repository: ") {
+		t.Fatalf("unexpected init stdout: %q", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"env", "create", "Prod", "--repo", repoPath}, &stdout, &stderr); code != 0 || stdout.String() != "Environment created: prod\n" {
+		t.Fatalf("command-first env create failed code=%d out=%q err=%q", code, stdout.String(), stderr.String())
+	}
+
+	devicePath := filepath.Join(repoPath, "envs", "prod", "state", "devices", "id1")
+	panoPath := filepath.Join(repoPath, "envs", "prod", "state", "panorama", "id2")
+	if err := os.MkdirAll(devicePath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(panoPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(devicePath, "latest.json"), []byte(`{"kind":"device"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(panoPath, "latest.json"), []byte(`{"kind":"panorama"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := [][]string{
+		{"devices", "--repo", repoPath, "--env", "prod"},
+		{"panorama", "--repo", repoPath, "--env", "prod"},
+		{"topology", "--repo", repoPath, "--env", "prod"},
+		{"ingest", "a.tgz", "--repo", repoPath, "--env", "prod"},
+		{"export", "--repo", repoPath, "--env", "prod"},
+		{"show", "device", "id1", "--repo", repoPath, "--env", "prod"},
+		{"show", "panorama", "id2", "--repo", repoPath, "--env", "prod"},
+		{"help", "devices", "--repo", repoPath, "--env", "prod"},
+		{"open", "--repo", repoPath, "--env", "prod"},
+	}
+	for _, args := range cases {
+		stdout.Reset()
+		stderr.Reset()
+		if code := Run(args, &stdout, &stderr); code != 0 {
+			t.Fatalf("command-first args=%v failed code=%d err=%q", args, code, stderr.String())
+		}
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"--bad-flag", "init"}, &stdout, &stderr); code != 2 {
+		t.Fatalf("invalid global flag code=%d want 2, stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE ") {
+		t.Fatalf("invalid global flag stderr mismatch: %q", stderr.String())
 	}
 }

@@ -181,3 +181,17 @@
   - `go test ./internal/cli -run TestOpenShellCommandSet` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
   - `go test ./e2e -run TestMVPAcceptanceChecklist` -> `ok   github.com/seemrkz/netsec-sk/e2e`
   - `./scripts/release/build_and_checksum.sh` -> exit `0`, artifacts and `checksums.txt` created under `dist/release`
+
+## TASK-00013
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Added global-flag normalization so `--repo` and `--env` are accepted both before and after command tokens across CLI command families.
+- Files:
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `docs/plan.v0.1.0.md`
+  - `docs/amendments/AMD-00002-cli-global-flag-order.v0.1.0.md`
+- Verification:
+  - `go test ./internal/cli -run TestGlobalFlags` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestGlobalFlagPlacementCompatibility` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`

@@ -5,7 +5,7 @@ plan_id: "PLAN-00001"
 version: "0.1.0"
 owners:
   - "cmarks"
-last_updated: "2026-02-08"
+last_updated: "2026-02-09"
 change_control:
   amendment_required_for_substantive_change: true
   metadata_change_allowed_without_amendment: true
@@ -77,6 +77,8 @@ cli-repo-core  | ingest-parse  | state-export-ux
                |               | ~~TASK-00010~~
                |               | ~~TASK-00011~~
 ~~TASK-00012~~ |               |
+~~TASK-00013~~ |               |
+TASK-00014     |               |
 ```
 
 ## 3. Task Registry
@@ -724,6 +726,113 @@ Every task section includes:
   - `./scripts/release/build_and_checksum.sh`
 - Expected results:
   - tests pass and release script emits artifact + checksum files for specified targets.
+
+#### Budget (Enforced)
+
+- Files changed <= 10
+- New files <= 3
+- Net new LOC <= 300
+- Public interface changes = 0
+
+### TASK-00013: Fix global flag parsing to support command-first usage across all commands
+
+- Objective: make global flags (`--repo`, `--env`) valid both before and after command tokens for every CLI command.
+- Spec refs: SPEC §9.1, §9.4
+- Status: Done
+- Blocked by: none
+- Depends on: TASK-00012
+- Changelog requirement: Yes
+- Plan update: On completion, set status to Done and strike through in lane view.
+
+#### Preconditions
+
+- Current CLI command surface from TASK-00012 is present.
+
+#### Scope
+
+- In:
+  - Parse normalization that accepts both:
+    - `netsec-sk --repo <path> init`
+    - `netsec-sk init --repo <path>`
+  - Equivalent dual-form behavior for all commands (`env`, `ingest`, `export`, `devices`, `panorama`, `show`, `topology`, `help`, `open`).
+  - Preserve existing exit/error conventions (`E_USAGE`, code 2) for truly invalid arguments.
+- Out:
+  - Any non-flag command behavior changes.
+
+#### Target Surface Area (Expected)
+
+- `internal/cli/root.go`
+- `internal/cli/root_test.go`
+- Public interfaces affected: CLI invocation compatibility only (no new commands/flags).
+
+#### Acceptance Criteria (Task-Level)
+
+- [ ] `netsec-sk init --repo ~/x` succeeds and no longer triggers `init does not accept positional arguments`.
+- [ ] Existing `netsec-sk --repo ~/x init` continues to work.
+- [ ] Global-flag placement compatibility applies to all command families.
+- [ ] Invalid flag syntax still returns `ERROR E_USAGE <message>` with exit code 2.
+
+#### Verification (Proof Required)
+
+- Commands/checks:
+  - `go test ./internal/cli -run TestGlobalFlags`
+  - `go test ./internal/cli -run TestGlobalFlagPlacementCompatibility`
+- Expected results:
+  - tests pass for both flag-placement forms and invalid-usage rejection paths.
+
+#### Budget (Enforced)
+
+- Files changed <= 10
+- New files <= 3
+- Net new LOC <= 300
+- Public interface changes = 0
+
+### TASK-00014: Add regression matrix for CLI invocation forms and acceptance coverage
+
+- Objective: prevent recurrence by codifying command invocation-form compatibility in CLI + e2e tests.
+- Spec refs: SPEC §9.1, §9.4, §11
+- Status: Not Started
+- Blocked by: none
+- Depends on: TASK-00013
+- Changelog requirement: Yes
+- Plan update: On completion, set status to Done and strike through in lane view.
+
+#### Preconditions
+
+- TASK-00013 parser fix merged.
+
+#### Scope
+
+- In:
+  - Add/expand tests to assert both invocation forms for key command categories:
+    - one-shot commands (`init`, `env`, `ingest`, `export`, `devices`, `panorama`, `topology`)
+    - hierarchical commands (`show device`, `show panorama`)
+    - interactive entry (`open` with global args).
+  - Update e2e acceptance checklist to include command-first form with trailing globals.
+- Out:
+  - Functional changes to command outputs beyond invocation-form compatibility.
+
+#### Target Surface Area (Expected)
+
+- `internal/cli/task12_test.go`
+- `e2e/mvp_test.go`
+- Public interfaces affected: none (test-only hardening).
+
+#### Acceptance Criteria (Task-Level)
+
+- [ ] Test matrix includes both flag-placement forms where applicable.
+- [ ] Open-shell entry path honors global args under command-first usage.
+- [ ] MVP acceptance test explicitly covers `init --repo <path>` path.
+- [ ] No regressions to existing command output contracts.
+
+#### Verification (Proof Required)
+
+- Commands/checks:
+  - `go test ./internal/cli -run TestCommandOutputContracts`
+  - `go test ./internal/cli -run TestOpenShellCommandSet`
+  - `go test ./e2e -run TestMVPAcceptanceChecklist`
+- Expected results:
+  - tests pass and confirm command-first + global-after behavior remains stable.
 
 #### Budget (Enforced)
 

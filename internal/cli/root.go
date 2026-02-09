@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -32,20 +31,49 @@ type ParseResult struct {
 }
 
 func ParseGlobalFlags(args []string) (ParseResult, error) {
-	var opts GlobalOptions
+	opts := GlobalOptions{
+		RepoPath: DefaultRepoPath,
+		EnvID:    DefaultEnvID,
+	}
+	commandArgs := make([]string, 0, len(args))
+	commandSeen := false
+	stopParsingGlobals := false
 
-	fs := flag.NewFlagSet("netsec-sk", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	fs.StringVar(&opts.RepoPath, "repo", DefaultRepoPath, "state repository path")
-	fs.StringVar(&opts.EnvID, "env", DefaultEnvID, "environment id")
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if stopParsingGlobals {
+			commandArgs = append(commandArgs, arg)
+			continue
+		}
+		if arg == "--" {
+			stopParsingGlobals = true
+			continue
+		}
 
-	if err := fs.Parse(args); err != nil {
-		return ParseResult{}, NewAppError(ErrUsage, err.Error())
+		if name, value, ok := inlineGlobalFlag(arg); ok {
+			setGlobalFlag(&opts, name, value)
+			continue
+		}
+		if arg == "--repo" || arg == "--env" {
+			if i+1 >= len(args) {
+				return ParseResult{}, NewAppError(ErrUsage, fmt.Sprintf("flag needs an argument: %s", arg))
+			}
+			i++
+			setGlobalFlag(&opts, arg, args[i])
+			continue
+		}
+
+		if strings.HasPrefix(arg, "--") && !commandSeen {
+			return ParseResult{}, NewAppError(ErrUsage, fmt.Sprintf("flag provided but not defined: %s", strings.TrimPrefix(arg, "-")))
+		}
+
+		commandSeen = true
+		commandArgs = append(commandArgs, arg)
 	}
 
 	return ParseResult{
 		GlobalOptions: opts,
-		CommandArgs:   fs.Args(),
+		CommandArgs:   commandArgs,
 	}, nil
 }
 
@@ -319,4 +347,23 @@ func SortedLines(in []string) []string {
 	out := append([]string{}, in...)
 	sort.Strings(out)
 	return out
+}
+
+func inlineGlobalFlag(arg string) (name string, value string, ok bool) {
+	if strings.HasPrefix(arg, "--repo=") {
+		return "--repo", strings.TrimPrefix(arg, "--repo="), true
+	}
+	if strings.HasPrefix(arg, "--env=") {
+		return "--env", strings.TrimPrefix(arg, "--env="), true
+	}
+	return "", "", false
+}
+
+func setGlobalFlag(opts *GlobalOptions, name string, value string) {
+	switch name {
+	case "--repo":
+		opts.RepoPath = value
+	case "--env":
+		opts.EnvID = value
+	}
 }
