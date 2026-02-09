@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 
+	"github.com/seemrkz/netsec-sk/internal/env"
 	"github.com/seemrkz/netsec-sk/internal/repo"
 )
 
@@ -58,6 +60,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	switch parsed.CommandArgs[0] {
 	case "init":
 		return runInit(parsed, stdout, stderr)
+	case "env":
+		return runEnv(parsed, stdout, stderr)
 	default:
 		err = NewAppError(ErrInternal, fmt.Sprintf("command not yet implemented: %s", parsed.CommandArgs[0]))
 		writeErrorLine(stderr, err)
@@ -97,4 +101,73 @@ func mapInitError(err error) error {
 	}
 
 	return NewAppError(ErrIO, err.Error())
+}
+
+func runEnv(parsed ParseResult, stdout, stderr io.Writer) int {
+	if len(parsed.CommandArgs) < 2 {
+		err := NewAppError(ErrUsage, "env requires a subcommand: list|create")
+		writeErrorLine(stderr, err)
+		return ExitCodeFor(err)
+	}
+
+	svc := env.NewService(parsed.GlobalOptions.RepoPath)
+	switch parsed.CommandArgs[1] {
+	case "list":
+		return runEnvList(parsed.CommandArgs, svc, stdout, stderr)
+	case "create":
+		return runEnvCreate(parsed.CommandArgs, svc, stdout, stderr)
+	default:
+		err := NewAppError(ErrUsage, fmt.Sprintf("unknown env subcommand: %s", parsed.CommandArgs[1]))
+		writeErrorLine(stderr, err)
+		return ExitCodeFor(err)
+	}
+}
+
+func runEnvList(args []string, svc env.Service, stdout, stderr io.Writer) int {
+	if len(args) != 2 {
+		err := NewAppError(ErrUsage, "usage: netsec-sk env list [--repo <path>]")
+		writeErrorLine(stderr, err)
+		return ExitCodeFor(err)
+	}
+
+	envs, err := svc.List()
+	if err != nil {
+		appErr := NewAppError(ErrIO, err.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+
+	if len(envs) > 0 {
+		_, _ = fmt.Fprintln(stdout, strings.Join(envs, "\n"))
+	}
+	return 0
+}
+
+func runEnvCreate(args []string, svc env.Service, stdout, stderr io.Writer) int {
+	if len(args) != 3 {
+		err := NewAppError(ErrUsage, "usage: netsec-sk env create <env_id> [--repo <path>]")
+		writeErrorLine(stderr, err)
+		return ExitCodeFor(err)
+	}
+
+	envID, created, err := svc.Create(args[2])
+	if err != nil {
+		if errors.Is(err, env.ErrInvalidEnvID) {
+			appErr := NewAppError(ErrUsage, fmt.Sprintf("invalid env_id: %s", env.NormalizeEnvID(args[2])))
+			writeErrorLine(stderr, appErr)
+			return ExitCodeFor(appErr)
+		}
+
+		appErr := NewAppError(ErrIO, err.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+
+	if created {
+		_, _ = fmt.Fprintf(stdout, "Environment created: %s\n", envID)
+		return 0
+	}
+
+	_, _ = fmt.Fprintf(stdout, "Environment already exists: %s\n", envID)
+	return 0
 }

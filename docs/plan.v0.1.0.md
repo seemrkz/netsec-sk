@@ -73,7 +73,7 @@ cli-repo-core  | ingest-parse  | state-export-ux
 -----------------------------------------------
 ~~TASK-00001~~ | TASK-00004    | TASK-00007
 ~~TASK-00002~~ | TASK-00005    | TASK-00008
-TASK-00003     | TASK-00006    | TASK-00009
+~~TASK-00003~~ | TASK-00006    | TASK-00009
                |               | TASK-00010
                |               | TASK-00011
 TASK-00012     |               |
@@ -207,7 +207,7 @@ Every task section includes:
 
 - Objective: Implement env ID normalization/validation plus `env list` and `env create` contracts.
 - Spec refs: SPEC §5.1, §5.2, §9.4 (`env list`, `env create`)
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00001, TASK-00002
 - Changelog requirement: Yes

@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -114,5 +117,73 @@ func TestExitCodeMapping(t *testing.T) {
 				t.Fatalf("FormatErrorLine() = %q, want %q", got, tt.wantLine)
 			}
 		})
+	}
+}
+
+func TestEnvCommandOutputs(t *testing.T) {
+	repoPath := t.TempDir()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	exit := Run([]string{"--repo", repoPath, "env", "create", "Dev"}, &stdout, &stderr)
+	if exit != 0 {
+		t.Fatalf("Run(env create) exit = %d, want 0", exit)
+	}
+	if stderr.String() != "" {
+		t.Fatalf("Run(env create) stderr = %q, want empty", stderr.String())
+	}
+	if stdout.String() != "Environment created: dev\n" {
+		t.Fatalf("Run(env create) stdout = %q", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exit = Run([]string{"--repo", repoPath, "env", "create", "dev"}, &stdout, &stderr)
+	if exit != 0 {
+		t.Fatalf("Run(env create idempotent) exit = %d, want 0", exit)
+	}
+	if stdout.String() != "Environment already exists: dev\n" {
+		t.Fatalf("Run(env create idempotent) stdout = %q", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exit = Run([]string{"--repo", repoPath, "env", "create", "BAD_NAME"}, &stdout, &stderr)
+	if exit != 2 {
+		t.Fatalf("Run(env create invalid) exit = %d, want 2", exit)
+	}
+	if stderr.String() != "ERROR E_USAGE invalid env_id: bad_name\n" {
+		t.Fatalf("Run(env create invalid) stderr = %q", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exit = Run([]string{"--repo", repoPath, "env", "create", "prod"}, &stdout, &stderr)
+	if exit != 0 {
+		t.Fatalf("Run(env create prod) exit = %d, want 0", exit)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exit = Run([]string{"--repo", repoPath, "env", "list"}, &stdout, &stderr)
+	if exit != 0 {
+		t.Fatalf("Run(env list) exit = %d, want 0", exit)
+	}
+	if stderr.String() != "" {
+		t.Fatalf("Run(env list) stderr = %q, want empty", stderr.String())
+	}
+	if stdout.String() != "dev\nprod\n" {
+		t.Fatalf("Run(env list) stdout = %q", stdout.String())
+	}
+
+	expectedDirs := []string{
+		filepath.Join(repoPath, "envs", "dev", "state"),
+		filepath.Join(repoPath, "envs", "dev", "exports"),
+		filepath.Join(repoPath, "envs", "dev", "overrides"),
+	}
+	for _, dir := range expectedDirs {
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			t.Fatalf("expected directory %s to exist", dir)
+		}
 	}
 }
