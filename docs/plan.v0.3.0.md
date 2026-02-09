@@ -72,7 +72,7 @@ Lane view:
 | LANE1 | LANE2 | LANE3 | LANE4 |
 |---|---|---|---|
 | ~~TASK-00023~~ | TASK-00026 | TASK-00030 | TASK-00032 |
-| TASK-00024 | TASK-00027 | TASK-00031 | TASK-00033 |
+| ~~TASK-00024~~ | TASK-00027 | TASK-00031 | TASK-00033 |
 | TASK-00025 | TASK-00028 |  |  |
 |  | TASK-00029 |  |  |
 
@@ -161,7 +161,7 @@ Every task section includes:
 
 - Objective: extract supported archives safely and classify unsupported/corrupt inputs deterministically.
 - Spec refs: SPEC §3.4, §6.1, §6.3, §6.9
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00023
 - Changelog requirement: Yes
@@ -190,9 +190,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] supported archives extract only within assigned extract root.
-- [ ] traversal/symlink escape attempts are rejected.
-- [ ] mixed inputs include unsupported files in `attempted` and `parse_error_fatal` counts.
+- [x] supported archives extract only within assigned extract root.
+- [x] traversal/symlink escape attempts are rejected.
+- [x] mixed inputs include unsupported files in `attempted` and `parse_error_fatal` counts.
 
 #### Verification (Proof Required)
 
@@ -215,7 +215,7 @@ Every task section includes:
 - Required commit message format: `TASK-00024: add safe archive extraction and mixed-input accounting`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00024: add safe archive extraction and mixed-input accounting`
 
 ### TASK-00025: Integrate repo unsafe-state gate and ingest locking lifecycle
 

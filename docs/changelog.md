@@ -1,5 +1,23 @@
 # Changelog
 
+## TASK-00024
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented safe `.tgz`/`.tar.gz` extraction with traversal/symlink rejection, mixed-input attempt accounting, and unsupported-extension fatal classification in ingest runtime.
+- Files:
+  - `internal/ingest/extract.go`
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `internal/cli/archive_test_helpers_test.go`
+  - `internal/cli/root_test.go`
+  - `internal/cli/task12_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/ingest -run TestArchiveExtractionSupportedFormats` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/ingest -run TestArchivePathTraversalRejected` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/ingest -run TestUnsupportedExtensionAccounting` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+
 ## TASK-00023
 
 - Date: 2026-02-09

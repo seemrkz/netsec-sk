@@ -212,7 +212,7 @@ func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 	repoPath := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	ingestPath := filepath.Join(repoPath, "a.tgz")
-	if err := os.WriteFile(ingestPath, []byte("archive"), 0o644); err != nil {
+	if err := writeTestTGZ(ingestPath); err != nil {
 		t.Fatal(err)
 	}
 

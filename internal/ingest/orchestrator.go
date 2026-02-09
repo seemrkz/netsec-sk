@@ -55,10 +55,32 @@ func Run(options RunOptions) (Summary, error) {
 		return Summary{}, err
 	}
 
-	// Runtime entrypoint is active; per-attempt parse/persist behavior is added in later tasks.
-	summary := Summary{
-		Attempted:             len(prep.OrderedInputs),
-		SkippedStateUnchanged: len(prep.OrderedInputs),
+	summary := Summary{}
+	for idx, input := range prep.OrderedInputs {
+		summary.Attempted++
+
+		if !isSupportedArchive(input) {
+			summary.ParseErrorFatal++
+			continue
+		}
+
+		extractDir, err := BeginTSFExtractDir(prep.RunExtractRoot, input, idx+1)
+		if err != nil {
+			summary.ParseErrorFatal++
+			continue
+		}
+
+		extractErr := ExtractArchive(input, extractDir)
+		if finishErr := FinishTSFExtractDir(extractDir, false); finishErr != nil {
+			// Cleanup warnings are non-fatal by spec; continue with extract outcome.
+		}
+		if extractErr != nil {
+			summary.ParseErrorFatal++
+			continue
+		}
+
+		// Parse/persist pipeline lands in follow-up tasks; successful archive attempts remain non-fatal.
+		summary.SkippedStateUnchanged++
 	}
 	return summary, nil
 }
@@ -134,9 +156,7 @@ func ResolveInputs(inputs []string) ([]string, error) {
 					return nil
 				}
 				cleanPath := filepath.Clean(path)
-				if isSupportedArchive(cleanPath) {
-					paths = append(paths, cleanPath)
-				}
+				paths = append(paths, cleanPath)
 				return nil
 			})
 			if err != nil {
@@ -145,9 +165,7 @@ func ResolveInputs(inputs []string) ([]string, error) {
 			continue
 		}
 
-		if isSupportedArchive(abs) {
-			paths = append(paths, abs)
-		}
+		paths = append(paths, abs)
 	}
 
 	sort.Strings(paths)

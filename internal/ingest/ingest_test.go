@@ -1,7 +1,10 @@
 package ingest
 
 import (
+	"archive/tar"
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -54,6 +57,7 @@ func TestInputOrdering(t *testing.T) {
 		filepath.Join(dirA, "nested", "m.tar.gz"),
 		filepath.Join(dirA, "z.tgz"),
 		filepath.Join(dirB, "a.tgz"),
+		filepath.Join(dirB, "skip.txt"),
 	}
 	for i := range want {
 		want[i] = filepath.Clean(want[i])
@@ -250,4 +254,157 @@ func TestIngestLedgerAllAttempts(t *testing.T) {
 	if count != len(entries) {
 		t.Fatalf("row count=%d, want %d", count, len(entries))
 	}
+}
+
+func TestArchiveExtractionSupportedFormats(t *testing.T) {
+	repoPath := t.TempDir()
+	dir := filepath.Join(repoPath, "inputs")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	tgzPath := filepath.Join(dir, "a.tgz")
+	tarGzPath := filepath.Join(dir, "b.tar.gz")
+	if err := writeTGZ(tgzPath, []tarEntry{{Name: "tmp/cli/a.txt", Body: "a"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTGZ(tarGzPath, []tarEntry{{Name: "tmp/cli/b.txt", Body: "b"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{dir},
+		Now:      time.Unix(1_700_000_100, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Run() unexpected error: %v", err)
+	}
+	if summary.Attempted != 2 || summary.ParseErrorFatal != 0 || summary.SkippedStateUnchanged != 2 {
+		t.Fatalf("summary=%+v, want attempted=2 parse_error_fatal=0 skipped_state_unchanged=2", summary)
+	}
+
+	extractRoot := filepath.Join(repoPath, ".netsec-state", "extract")
+	runDirs, err := os.ReadDir(extractRoot)
+	if err != nil {
+		t.Fatalf("read extract root err=%v", err)
+	}
+	if len(runDirs) != 1 {
+		t.Fatalf("run dir count=%d, want 1", len(runDirs))
+	}
+	leftovers, err := os.ReadDir(filepath.Join(extractRoot, runDirs[0].Name()))
+	if err != nil {
+		t.Fatalf("read run dir err=%v", err)
+	}
+	if len(leftovers) != 0 {
+		t.Fatalf("expected per-archive extract cleanup, leftovers=%d", len(leftovers))
+	}
+}
+
+func TestArchivePathTraversalRejected(t *testing.T) {
+	repoPath := t.TempDir()
+	archivePath := filepath.Join(repoPath, "bad.tgz")
+	if err := writeTGZ(archivePath, []tarEntry{{Name: "link-out", Typeflag: tar.TypeSymlink, Linkname: "../../escape.txt"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archivePath},
+		Now:      time.Unix(1_700_000_200, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Run() unexpected error: %v", err)
+	}
+	if summary.Attempted != 1 || summary.ParseErrorFatal != 1 || summary.SkippedStateUnchanged != 0 {
+		t.Fatalf("summary=%+v, want attempted=1 parse_error_fatal=1 skipped_state_unchanged=0", summary)
+	}
+	if _, err := os.Stat(filepath.Join(repoPath, "escape.txt")); !os.IsNotExist(err) {
+		t.Fatalf("escape file should not be created, stat err=%v", err)
+	}
+}
+
+func TestUnsupportedExtensionAccounting(t *testing.T) {
+	repoPath := t.TempDir()
+	dir := filepath.Join(repoPath, "inputs")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeTGZ(filepath.Join(dir, "good.tgz"), []tarEntry{{Name: "tmp/cli/good.txt", Body: "ok"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "skip.txt"), []byte("txt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "skip.log"), []byte("log"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{dir},
+		Now:      time.Unix(1_700_000_300, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Run() unexpected error: %v", err)
+	}
+	if summary.Attempted != 3 {
+		t.Fatalf("attempted=%d, want 3", summary.Attempted)
+	}
+	if summary.ParseErrorFatal != 2 {
+		t.Fatalf("parse_error_fatal=%d, want 2", summary.ParseErrorFatal)
+	}
+	if summary.SkippedStateUnchanged != 1 {
+		t.Fatalf("skipped_state_unchanged=%d, want 1", summary.SkippedStateUnchanged)
+	}
+}
+
+type tarEntry struct {
+	Name     string
+	Body     string
+	Typeflag byte
+	Linkname string
+}
+
+func writeTGZ(path string, entries []tarEntry) error {
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	for _, entry := range entries {
+		typeflag := entry.Typeflag
+		if typeflag == 0 {
+			typeflag = tar.TypeReg
+		}
+		hdr := &tar.Header{
+			Name:     entry.Name,
+			Mode:     0o644,
+			Size:     int64(len(entry.Body)),
+			Typeflag: typeflag,
+			Linkname: entry.Linkname,
+		}
+		if typeflag != tar.TypeReg && typeflag != tar.TypeRegA {
+			hdr.Size = 0
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if typeflag == tar.TypeReg || typeflag == tar.TypeRegA {
+			if _, err := tw.Write([]byte(entry.Body)); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	if err := gzw.Close(); err != nil {
+		return err
+	}
+	return os.WriteFile(path, buf.Bytes(), 0o644)
 }
