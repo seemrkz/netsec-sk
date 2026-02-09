@@ -92,3 +92,17 @@
   - `go test ./internal/parse -run TestFirewallSnapshotRequiredFields` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`
   - `go test ./internal/parse -run TestPanoramaSnapshotRequiredFields` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`
   - `go test ./internal/parse -run TestParseErrorClassification` -> `ok   github.com/seemrkz/netsec-sk/internal/parse`
+
+## TASK-00007
+
+- Date: 2026-02-09
+- Type: Added
+- Summary: Implemented optional RDNS enrichment for newly discovered firewalls with deterministic 1s timeout, single retry policy, and status mapping.
+- Files:
+  - `internal/enrich/rdns.go`
+  - `internal/enrich/rdns_test.go`
+  - `internal/ingest/orchestrator.go`
+  - `docs/plan.v0.1.0.md`
+- Verification:
+  - `go test ./internal/enrich -run TestRDNSOnlyForNewDevices` -> `ok   github.com/seemrkz/netsec-sk/internal/enrich`
+  - `go test ./internal/enrich -run TestRDNSTimeoutRetry` -> `ok   github.com/seemrkz/netsec-sk/internal/enrich`

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/seemrkz/netsec-sk/internal/enrich"
 	"github.com/seemrkz/netsec-sk/internal/env"
 )
 
@@ -219,4 +220,14 @@ func IsDuplicateTSF(tsfID string, seen map[string]struct{}) bool {
 	}
 	_, ok := seen[tsfID]
 	return ok
+}
+
+func ApplyRDNS(enabled bool, isNewDevice bool, mgmtIP string, now time.Time, lookup enrich.LookupFunc) (enrich.ReverseDNS, bool) {
+	return enrich.MaybeLookup(enrich.Options{
+		Enabled:     enabled,
+		IsNewDevice: isNewDevice,
+		MgmtIP:      mgmtIP,
+		Now:         now,
+		Lookup:      lookup,
+	})
 }

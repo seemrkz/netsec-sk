@@ -71,7 +71,7 @@ Lane view:
 LANE1          | LANE2         | LANE3
 cli-repo-core  | ingest-parse  | state-export-ux
 -----------------------------------------------
-~~TASK-00001~~ | ~~TASK-00004~~ | TASK-00007
+~~TASK-00001~~ | ~~TASK-00004~~ | ~~TASK-00007~~
 ~~TASK-00002~~ | ~~TASK-00005~~ | TASK-00008
 ~~TASK-00003~~ | ~~TASK-00006~~ | TASK-00009
                |               | TASK-00010
@@ -416,7 +416,7 @@ Every task section includes:
 
 - Objective: Apply optional RDNS with deterministic timeout/retry policy for new devices.
 - Spec refs: SPEC §6.8, §7.2
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00006
 - Changelog requirement: Yes
