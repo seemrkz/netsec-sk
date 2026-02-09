@@ -10,6 +10,7 @@ import (
 
 func TestCommandOutputContracts(t *testing.T) {
 	repo := t.TempDir()
+	initGitRepoForTests(t, repo)
 	ingestPath := filepath.Join(repo, "a.tgz")
 	devicePath := filepath.Join(repo, "envs", "default", "state", "devices", "id1")
 	panoPath := filepath.Join(repo, "envs", "default", "state", "panorama", "id2")
@@ -46,7 +47,7 @@ func TestCommandOutputContracts(t *testing.T) {
 		{[]string{"topology", "--repo", repo}, "Topology edges: 0\nOrphan zones: 0\n", "exact"},
 		{[]string{"--repo", repo, "--env", "default", "export"}, "Export complete: default\n", "exact"},
 		{[]string{"export", "--repo", repo, "--env", "default"}, "Export complete: default\n", "exact"},
-		{[]string{"--repo", repo, "ingest", ingestPath}, "Ingest complete: attempted=1 committed=0 skipped_duplicate_tsf=0 skipped_state_unchanged=0 parse_error_partial=0 parse_error_fatal=0\n", "exact"},
+		{[]string{"--repo", repo, "ingest", ingestPath}, "Ingest complete: attempted=1 committed=1 skipped_duplicate_tsf=0 skipped_state_unchanged=0 parse_error_partial=0 parse_error_fatal=0\n", "exact"},
 		{[]string{"ingest", ingestPath, "--repo", repo}, "Ingest complete: attempted=1 committed=0 skipped_duplicate_tsf=0 skipped_state_unchanged=1 parse_error_partial=0 parse_error_fatal=0\n", "exact"},
 		{[]string{"--repo", repo, "show", "device", "id1"}, "\"kind\": \"device\"", "contains"},
 		{[]string{"show", "device", "id1", "--repo", repo}, "\"kind\": \"device\"", "contains"},
@@ -74,6 +75,7 @@ func TestCommandOutputContracts(t *testing.T) {
 
 func TestOpenShellCommandSet(t *testing.T) {
 	repo := t.TempDir()
+	initGitRepoForTests(t, repo)
 	ingestPath := filepath.Join(repo, "a.tgz")
 	devicePath := filepath.Join(repo, "envs", "default", "state", "devices", "id1")
 	panoPath := filepath.Join(repo, "envs", "default", "state", "panorama", "id2")

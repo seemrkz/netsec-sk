@@ -1,5 +1,24 @@
 # Changelog
 
+## TASK-00029
+
+- Date: 2026-02-09
+- Type: Changed
+- Summary: Enforced atomic ingest commit pipeline with allowlist staging, deterministic commit subjects, one-commit-per-committed-result behavior, and runtime ingest/commit ledger writes.
+- Files:
+  - `internal/commit/committer.go`
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+  - `internal/cli/root_test.go`
+  - `internal/cli/task12_test.go`
+  - `internal/cli/archive_test_helpers_test.go`
+  - `docs/plan.v0.3.0.md`
+- Verification:
+  - `go test ./internal/commit -run TestAtomicCommitAllowlist` -> `ok   github.com/seemrkz/netsec-sk/internal/commit`
+  - `go test ./internal/commit -run TestCommitMessageFormat` -> `ok   github.com/seemrkz/netsec-sk/internal/commit`
+  - `go test ./internal/ingest -run TestCommittedResultCreatesOneCommit` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/ingest -run TestIngestLedgerAllAttempts` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+
 ## TASK-00028
 
 - Date: 2026-02-09

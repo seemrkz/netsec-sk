@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -261,6 +262,7 @@ func TestIngestLedgerAllAttempts(t *testing.T) {
 
 func TestArchiveExtractionSupportedFormats(t *testing.T) {
 	repoPath := t.TempDir()
+	initRepoWithIdentity(t, repoPath)
 	dir := filepath.Join(repoPath, "inputs")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
@@ -331,6 +333,7 @@ func TestArchivePathTraversalRejected(t *testing.T) {
 
 func TestUnsupportedExtensionAccounting(t *testing.T) {
 	repoPath := t.TempDir()
+	initRepoWithIdentity(t, repoPath)
 	dir := filepath.Join(repoPath, "inputs")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
@@ -404,9 +407,7 @@ func TestRepoUnsafeStateBlocksIngest(t *testing.T) {
 
 func TestSnapshotPersistenceOnChange(t *testing.T) {
 	repoPath := t.TempDir()
-	if _, err := repo.Init(repoPath); err != nil {
-		t.Skipf("git unavailable for snapshot persistence test: %v", err)
-	}
+	initRepoWithIdentity(t, repoPath)
 
 	dir := filepath.Join(repoPath, "inputs")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -491,9 +492,7 @@ func TestSnapshotPersistenceOnChange(t *testing.T) {
 
 func TestRDNSOnlyForNewDevicesInRuntime(t *testing.T) {
 	repoPath := t.TempDir()
-	if _, err := repo.Init(repoPath); err != nil {
-		t.Skipf("git unavailable for rdns runtime test: %v", err)
-	}
+	initRepoWithIdentity(t, repoPath)
 
 	archive := filepath.Join(repoPath, "fw.tgz")
 	if err := writeTGZ(archive, []tarEntry{{Name: "tmp/cli/fw.txt", Body: "firewall\nserial: S-RDNS\nhostname: fw-rdns\nmgmt_ip: 10.1.1.1"}}); err != nil {
@@ -560,6 +559,62 @@ func TestRDNSOnlyForNewDevicesInRuntime(t *testing.T) {
 	}
 }
 
+func TestCommittedResultCreatesOneCommit(t *testing.T) {
+	repoPath := t.TempDir()
+	initRepoWithIdentity(t, repoPath)
+
+	archive := filepath.Join(repoPath, "fw.tgz")
+	if err := writeTGZ(archive, []tarEntry{{Name: "tmp/cli/fw.txt", Body: "firewall\nserial: C1\nhostname: fw-commit\nmgmt_ip: 10.2.2.2"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archive},
+		Now:      time.Unix(1_700_002_000, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Run() err=%v", err)
+	}
+	if summary.Committed != 1 {
+		t.Fatalf("summary.committed=%d, want 1 (summary=%+v)", summary.Committed, summary)
+	}
+
+	countOut, err := exec.Command("git", "-C", repoPath, "rev-list", "--count", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-list failed: %v, out=%s", err, string(countOut))
+	}
+	if strings.TrimSpace(string(countOut)) != "1" {
+		t.Fatalf("commit count=%q, want 1", strings.TrimSpace(string(countOut)))
+	}
+
+	logPath := filepath.Join(repoPath, ".netsec-state", "ingest.ndjson")
+	f, err := os.Open(logPath)
+	if err != nil {
+		t.Fatalf("open ingest log err=%v", err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	rows := 0
+	for scanner.Scan() {
+		rows++
+		var row IngestLogEntry
+		if err := json.Unmarshal(scanner.Bytes(), &row); err != nil {
+			t.Fatalf("unmarshal ingest row: %v", err)
+		}
+		if row.Result != "committed" || row.GitCommit == "" {
+			t.Fatalf("unexpected ingest row: %#v", row)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("scan ingest log err=%v", err)
+	}
+	if rows != 1 {
+		t.Fatalf("ingest row count=%d, want 1", rows)
+	}
+}
+
 type tarEntry struct {
 	Name     string
 	Body     string
@@ -604,4 +659,17 @@ func writeTGZ(path string, entries []tarEntry) error {
 		return err
 	}
 	return os.WriteFile(path, buf.Bytes(), 0o644)
+}
+
+func initRepoWithIdentity(t *testing.T, repoPath string) {
+	t.Helper()
+	if _, err := repo.Init(repoPath); err != nil {
+		t.Skipf("git unavailable for test repo init: %v", err)
+	}
+	if err := exec.Command("git", "-C", repoPath, "config", "user.email", "tests@example.com").Run(); err != nil {
+		t.Fatalf("git config user.email failed: %v", err)
+	}
+	if err := exec.Command("git", "-C", repoPath, "config", "user.name", "Tests").Run(); err != nil {
+		t.Fatalf("git config user.name failed: %v", err)
+	}
 }

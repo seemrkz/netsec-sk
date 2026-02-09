@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"os"
+	"os/exec"
+	"testing"
 )
 
 func writeTestTGZ(path string) error {
@@ -44,4 +46,17 @@ func writeTestTGZ(path string) error {
 		return err
 	}
 	return os.WriteFile(path, buf.Bytes(), 0o644)
+}
+
+func initGitRepoForTests(t *testing.T, repoPath string) {
+	t.Helper()
+	if err := exec.Command("git", "-C", repoPath, "init").Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+	if err := exec.Command("git", "-C", repoPath, "config", "user.email", "tests@example.com").Run(); err != nil {
+		t.Fatalf("git config user.email failed: %v", err)
+	}
+	if err := exec.Command("git", "-C", repoPath, "config", "user.name", "Tests").Run(); err != nil {
+		t.Fatalf("git config user.name failed: %v", err)
+	}
 }

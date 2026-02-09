@@ -216,6 +216,7 @@ func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 	if err := writeTestTGZ(ingestPath); err != nil {
 		t.Fatal(err)
 	}
+	initGitRepoForTests(t, repoPath)
 
 	if code := Run([]string{"--repo", repoPath, "init"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("global-first init failed code=%d stderr=%q", code, stderr.String())

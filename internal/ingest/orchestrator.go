@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/seemrkz/netsec-sk/internal/commit"
 	"github.com/seemrkz/netsec-sk/internal/enrich"
 	"github.com/seemrkz/netsec-sk/internal/env"
 	"github.com/seemrkz/netsec-sk/internal/parse"
@@ -31,6 +32,7 @@ var releaseRunLock = ReleaseLock
 var currentPID = os.Getpid
 var currentProcessInspector LockInspector = ProcessInspector{}
 var rdnsLookup enrich.LookupFunc = defaultRDNSLookup
+var commitAllowlisted = commit.CommitAllowlisted
 
 type Summary struct {
 	Attempted             int
@@ -82,11 +84,25 @@ func Run(options RunOptions) (Summary, error) {
 	}
 
 	summary := Summary{}
+	ingestLogPath := filepath.Join(options.RepoPath, ".netsec-state", "ingest.ndjson")
+	commitLedgerPath := filepath.Join(options.RepoPath, "envs", prep.EnvID, "state", "commits.ndjson")
+	attemptedAt := now.UTC().Format(time.RFC3339)
 	for idx, input := range prep.OrderedInputs {
 		summary.Attempted++
+		entry := IngestLogEntry{
+			AttemptedAtUTC:   attemptedAt,
+			RunID:            prep.RunID,
+			EnvID:            prep.EnvID,
+			InputArchivePath: input,
+		}
 
 		if !isSupportedArchive(input) {
 			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			entry.Notes = "unsupported_extension"
+			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+				return Summary{}, err
+			}
 			continue
 		}
 
@@ -100,6 +116,10 @@ func Run(options RunOptions) (Summary, error) {
 		if extractErr != nil {
 			_ = FinishTSFExtractDir(extractDir, options.KeepExtract)
 			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+				return Summary{}, err
+			}
 			continue
 		}
 
@@ -107,10 +127,15 @@ func Run(options RunOptions) (Summary, error) {
 		_ = FinishTSFExtractDir(extractDir, options.KeepExtract)
 		if err != nil {
 			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+				return Summary{}, err
+			}
 			continue
 		}
 
 		identity := tsf.DeriveIdentity(extractedPaths, os.ReadFile)
+		entry.TSFID = identity.TSFID
 		out, err := parse.ParseSnapshot(parse.ParseContext{
 			TSFID:            identity.TSFID,
 			TSFOriginalName:  identity.TSFOriginalName,
@@ -119,8 +144,14 @@ func Run(options RunOptions) (Summary, error) {
 		}, fileContents)
 		if err != nil || out.Result == "parse_error_fatal" {
 			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+				return Summary{}, err
+			}
 			continue
 		}
+		entry.EntityType = string(out.EntityType)
+		entry.EntityID = out.EntityID
 
 		latestPath, snapshotsDir := statePaths(options.RepoPath, prep.EnvID, string(out.EntityType), out.EntityID)
 		isNewDevice := !pathExists(latestPath)
@@ -146,16 +177,67 @@ func Run(options RunOptions) (Summary, error) {
 		}
 
 		snapshotStamp := now.UTC().Format("20060102T150405Z")
-		unchanged, _, _, err := state.PersistIfChanged(out.Snapshot, latestPath, snapshotsDir, snapshotStamp)
+		unchanged, stateSHA, snapshotPath, err := state.PersistIfChanged(out.Snapshot, latestPath, snapshotsDir, snapshotStamp)
 		if err != nil {
 			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+				return Summary{}, err
+			}
+			continue
+		}
+
+		if out.Result == "parse_error_partial" {
+			summary.ParseErrorPartial++
+			entry.Result = "parse_error_partial"
+			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+				return Summary{}, err
+			}
 			continue
 		}
 		if unchanged {
 			summary.SkippedStateUnchanged++
+			entry.Result = "skipped_state_unchanged"
+			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+				return Summary{}, err
+			}
+			continue
 		}
-		if out.Result == "parse_error_partial" {
-			summary.ParseErrorPartial++
+
+		subject := commit.BuildCommitSubject(commit.Meta{
+			EnvID:      prep.EnvID,
+			EntityType: string(out.EntityType),
+			EntityID:   out.EntityID,
+			StateSHA:   stateSHA,
+			TSFID:      identity.TSFID,
+		})
+		allowlist := commit.BuildAllowlist(options.RepoPath, prep.EnvID, string(out.EntityType), out.EntityID, filepath.Base(snapshotPath))
+		gitCommit, err := commitAllowlisted(options.RepoPath, allowlist, subject)
+		if err != nil {
+			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			entry.Notes = "commit_failed"
+			if appendErr := AppendIngestAttempt(ingestLogPath, entry); appendErr != nil {
+				return Summary{}, appendErr
+			}
+			continue
+		}
+		summary.Committed++
+		entry.Result = "committed"
+		entry.GitCommit = gitCommit
+		if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
+			return Summary{}, err
+		}
+		if err := state.AppendCommitLedger(commitLedgerPath, state.CommitLedgerEntry{
+			CommittedAtUTC: now.UTC().Format(time.RFC3339),
+			TSFID:          identity.TSFID,
+			TSFOriginal:    identity.TSFOriginalName,
+			EntityType:     string(out.EntityType),
+			EntityID:       out.EntityID,
+			StateSHA256:    stateSHA,
+			GitCommit:      gitCommit,
+		}); err != nil {
+			return Summary{}, err
 		}
 	}
 	return summary, nil

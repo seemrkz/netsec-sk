@@ -74,7 +74,7 @@ Lane view:
 | ~~TASK-00023~~ | ~~TASK-00026~~ | TASK-00030 | TASK-00032 |
 | ~~TASK-00024~~ | ~~TASK-00027~~ | TASK-00031 | TASK-00033 |
 | ~~TASK-00025~~ | ~~TASK-00028~~ |  |  |
-|  | TASK-00029 |  |  |
+|  | ~~TASK-00029~~ |  |  |
 
 ## 3. Task Registry
 
@@ -461,7 +461,7 @@ Every task section includes:
 
 - Objective: enforce one atomic commit per committed TSF result and write both ingest and commit ledgers.
 - Spec refs: SPEC §3.3, §10.1, §10.2, §10.3, §10.4, §10.5
-- Status: Pending
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00025, TASK-00027, TASK-00028
 - Changelog requirement: Yes
@@ -492,9 +492,9 @@ Every task section includes:
 
 #### Acceptance Criteria (Task-Level)
 
-- [ ] committed results each map to exactly one commit.
-- [ ] duplicate and unchanged results create no commit.
-- [ ] commit subject and staged files match spec.
+- [x] committed results each map to exactly one commit.
+- [x] duplicate and unchanged results create no commit.
+- [x] commit subject and staged files match spec.
 
 #### Verification (Proof Required)
 
@@ -518,7 +518,7 @@ Every task section includes:
 - Required commit message format: `TASK-00029: enforce atomic commit pipeline and ledgers`
 - Commit proof capture (record in changelog on completion):
   - `commit_hash: <TBD>`
-  - `commit_message: <TBD>`
+  - `commit_message: TASK-00029: enforce atomic commit pipeline and ledgers`
 
 ### TASK-00030: Implement full export pipeline and `export` command contract
 
