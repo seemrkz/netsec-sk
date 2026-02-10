@@ -86,13 +86,39 @@ func TestMVPAcceptanceChecklist(t *testing.T) {
 		t.Fatalf("inventory header mismatch: %q", inventory)
 	}
 
+	historyOut, _ := runOK(t, []string{"--repo", repo, "--env", envID, "history", "state"})
+	if !strings.HasPrefix(historyOut, "COMMITTED_AT_UTC\tGIT_COMMIT\tTSF_ID\tTSF_ORIGINAL_NAME\tCHANGED_SCOPE\n") {
+		t.Fatalf("history header mismatch: %q", historyOut)
+	}
+	historyLines := strings.Split(strings.TrimSpace(historyOut), "\n")
+	if len(historyLines) < 2 {
+		t.Fatalf("history should include at least one commit row: %q", historyOut)
+	}
+	historyCols := strings.Split(historyLines[1], "\t")
+	if len(historyCols) != 5 {
+		t.Fatalf("history row column count=%d, want 5 row=%q", len(historyCols), historyLines[1])
+	}
+	if historyCols[1] == "" || historyCols[2] == "" || historyCols[3] == "" || historyCols[4] == "" {
+		t.Fatalf("history row missing provenance fields: %q", historyLines[1])
+	}
+	historyCommit := historyCols[1]
+
 	out, _ = runOK(t, []string{"--repo", repo, "--env", envID, "devices"})
 	if !strings.Contains(out, "SER-E2E-001\tfw-e2e\tPA-440\t11.0.0\t10.10.10.1") {
 		t.Fatalf("devices output missing row: %q", out)
 	}
 	out, _ = runOK(t, []string{"--repo", repo, "--env", envID, "topology"})
-	if !strings.HasPrefix(out, "Topology edges: ") {
+	if !strings.HasPrefix(strings.TrimSpace(out), "graph TD") {
 		t.Fatalf("unexpected topology output: %q", out)
+	}
+	statusBefore := string(mustExec(t, "git", "-C", repo, "status", "--short"))
+	out, _ = runOK(t, []string{"--repo", repo, "--env", envID, "topology", "--at-commit", historyCommit})
+	if !strings.HasPrefix(strings.TrimSpace(out), "graph TD") {
+		t.Fatalf("unexpected historical topology output: %q", out)
+	}
+	statusAfter := string(mustExec(t, "git", "-C", repo, "status", "--short"))
+	if statusBefore != statusAfter {
+		t.Fatalf("historical topology lookup mutated repo status before=%q after=%q", statusBefore, statusAfter)
 	}
 
 	helpOut, _ := runOK(t, []string{"help", "ingest"})

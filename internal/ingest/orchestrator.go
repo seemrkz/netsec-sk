@@ -17,6 +17,7 @@ import (
 	"github.com/seemrkz/netsec-sk/internal/commit"
 	"github.com/seemrkz/netsec-sk/internal/enrich"
 	"github.com/seemrkz/netsec-sk/internal/env"
+	exportpkg "github.com/seemrkz/netsec-sk/internal/export"
 	"github.com/seemrkz/netsec-sk/internal/parse"
 	"github.com/seemrkz/netsec-sk/internal/repo"
 	"github.com/seemrkz/netsec-sk/internal/state"
@@ -212,6 +213,19 @@ func Run(options RunOptions) (Summary, error) {
 			StateSHA:   stateSHA,
 			TSFID:      identity.TSFID,
 		})
+		if err := exportpkg.Run(exportpkg.RunOptions{
+			RepoPath: options.RepoPath,
+			EnvID:    prep.EnvID,
+			Now:      now,
+		}); err != nil {
+			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			entry.Notes = "export_failed"
+			if appendErr := AppendIngestAttempt(ingestLogPath, entry); appendErr != nil {
+				return Summary{}, appendErr
+			}
+			continue
+		}
 		allowlist := commit.BuildAllowlist(options.RepoPath, prep.EnvID, string(out.EntityType), out.EntityID, filepath.Base(snapshotPath))
 		gitCommit, err := commitAllowlisted(options.RepoPath, allowlist, subject)
 		if err != nil {

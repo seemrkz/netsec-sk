@@ -212,6 +212,35 @@ func TestEnvCommandOutputs(t *testing.T) {
 	}
 }
 
+func TestEnvRepresentativeIDs(t *testing.T) {
+	repoPath := t.TempDir()
+	representative := []string{"Prod", "Development", "Cloud", "Lab", "Home", "CustomerA", "CustomerB"}
+	for _, input := range representative {
+		var stdout, stderr bytes.Buffer
+		if code := Run([]string{"env", "create", input, "--repo", repoPath}, &stdout, &stderr); code != 0 {
+			t.Fatalf("env create input=%q code=%d stderr=%q", input, code, stderr.String())
+		}
+		if stderr.String() != "" {
+			t.Fatalf("env create input=%q unexpected stderr=%q", input, stderr.String())
+		}
+		if !strings.HasPrefix(stdout.String(), "Environment created: ") {
+			t.Fatalf("env create input=%q unexpected stdout=%q", input, stdout.String())
+		}
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--repo", repoPath, "env", "list"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("env list code=%d stderr=%q", code, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("env list stderr=%q, want empty", stderr.String())
+	}
+	want := "cloud\ncustomera\ncustomerb\ndevelopment\nhome\nlab\nprod\n"
+	if stdout.String() != want {
+		t.Fatalf("env list output mismatch:\n%s", stdout.String())
+	}
+}
+
 func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 	repoPath := t.TempDir()
 	var stdout, stderr bytes.Buffer
@@ -268,6 +297,7 @@ func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 	cases := [][]string{
 		{"devices", "--repo", repoPath, "--env", "prod"},
 		{"panorama", "--repo", repoPath, "--env", "prod"},
+		{"history", "state", "--repo", repoPath, "--env", "prod"},
 		{"topology", "--repo", repoPath, "--env", "prod"},
 		{"ingest", ingestPath, "--repo", repoPath, "--env", "prod"},
 		{"export", "--repo", repoPath, "--env", "prod"},

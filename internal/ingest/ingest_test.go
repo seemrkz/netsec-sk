@@ -262,6 +262,89 @@ func TestIngestLedgerAllAttempts(t *testing.T) {
 	}
 }
 
+func TestMultiTSFAttemptAndCommitOutcomes(t *testing.T) {
+	repoPath := t.TempDir()
+	initRepoWithIdentity(t, repoPath)
+
+	inputDir := filepath.Join(repoPath, "inputs")
+	if err := os.MkdirAll(inputDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	firstPath := filepath.Join(inputDir, "01-first.tgz")
+	duplicatePath := filepath.Join(inputDir, "02-duplicate.tgz")
+	secondPath := filepath.Join(inputDir, "03-second.tgz")
+
+	if err := writeTGZ(firstPath, []tarEntry{{Name: "tmp/cli/PA-440_ts.tgz.txt", Body: "firewall\nserial: B1\nhostname: fw-b1\nmgmt_ip: 10.6.6.1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTGZ(duplicatePath, []tarEntry{{Name: "tmp/cli/PA-440_ts.tgz.txt", Body: "firewall\nserial: B1\nhostname: fw-b1\nmgmt_ip: 10.6.6.1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTGZ(secondPath, []tarEntry{{Name: "tmp/cli/PA-445_ts.tgz.txt", Body: "firewall\nserial: B2\nhostname: fw-b2\nmgmt_ip: 10.6.6.2"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{inputDir},
+		Now:      time.Unix(1_700_005_000, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Run() err=%v", err)
+	}
+	if summary.Attempted != 3 || summary.Committed != 2 || summary.SkippedDuplicateTSF != 0 || summary.SkippedStateUnchanged != 1 || summary.ParseErrorPartial != 0 || summary.ParseErrorFatal != 0 {
+		t.Fatalf("summary=%+v, want attempted=3 committed=2 skipped_state_unchanged=1", summary)
+	}
+
+	logPath := filepath.Join(repoPath, ".netsec-state", "ingest.ndjson")
+	f, err := os.Open(logPath)
+	if err != nil {
+		t.Fatalf("open ingest log err=%v", err)
+	}
+	defer f.Close()
+
+	committed := 0
+	unchanged := 0
+	total := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		total++
+		var row IngestLogEntry
+		if err := json.Unmarshal(scanner.Bytes(), &row); err != nil {
+			t.Fatalf("invalid ingest row: %v", err)
+		}
+		switch row.Result {
+		case "committed":
+			committed++
+			if row.GitCommit == "" {
+				t.Fatalf("committed row missing git commit: %#v", row)
+			}
+		case "skipped_state_unchanged":
+			unchanged++
+			if row.GitCommit != "" {
+				t.Fatalf("unchanged row must not include git commit: %#v", row)
+			}
+		default:
+			t.Fatalf("unexpected ingest row result: %#v", row)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("scan ingest log err=%v", err)
+	}
+	if total != 3 || committed != 2 || unchanged != 1 {
+		t.Fatalf("ingest rows total=%d committed=%d unchanged=%d, want 3/2/1", total, committed, unchanged)
+	}
+
+	countOut, err := exec.Command("git", "-C", repoPath, "rev-list", "--count", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-list failed: %v, out=%s", err, string(countOut))
+	}
+	if strings.TrimSpace(string(countOut)) != "2" {
+		t.Fatalf("commit count=%q, want 2", strings.TrimSpace(string(countOut)))
+	}
+}
+
 func TestArchiveExtractionSupportedFormats(t *testing.T) {
 	repoPath := t.TempDir()
 	initRepoWithIdentity(t, repoPath)
