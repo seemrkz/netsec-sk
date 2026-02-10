@@ -7,7 +7,7 @@ Git-backed repo for change tracking and analysis.
 ## Status
 
 - Project phase: prototype-focused spec and implementation planning completed; build tasks are defined.
-- Canonical spec: `docs/spec.v0.5.1.md`
+- Canonical spec: `docs/spec.v0.6.0.md`
 - Implementation plan: `docs/plan.v0.3.0.md`
 - Constitution/governance: `docs/AGENTS.md`
 - Legacy draft spec (superseded): `docs/netsec-sk_mvp_spec_v0.4.md`
@@ -67,11 +67,12 @@ Note: if you omit `--repo`, the default repo path is `./default`.
 - `env create <env_id>`
 - `ingest <paths...> [--env X] [--rdns] [--keep-extract]`
 - `export [--env X]`
+- `history state [--env X]`
 - `devices`
 - `panorama`
 - `show device <device_id>`
 - `show panorama <panorama_id>`
-- `topology`
+- `topology [--at-commit <hash>]`
 
 ## Repository Layout
 
