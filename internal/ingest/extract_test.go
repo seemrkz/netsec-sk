@@ -22,10 +22,11 @@ func TestExtractArchive_AllowsDotRootEntry(t *testing.T) {
 	if err := tw.WriteHeader(&tar.Header{Name: "./", Typeflag: tar.TypeDir, Mode: 0o755}); err != nil {
 		t.Fatal(err)
 	}
-	if err := tw.WriteHeader(&tar.Header{Name: "./a.txt", Typeflag: tar.TypeReg, Mode: 0o644, Size: int64(len("ok"))}); err != nil {
+	body := "serial: SER001\nmodel: PA-5450\nhostname: fw1\nip-address: 10.0.0.1\n"
+	if err := tw.WriteHeader(&tar.Header{Name: "./techsupport_x.txt", Typeflag: tar.TypeReg, Mode: 0o644, Size: int64(len(body))}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tw.Write([]byte("ok")); err != nil {
+	if _, err := tw.Write([]byte(body)); err != nil {
 		t.Fatal(err)
 	}
 	if err := tw.Close(); err != nil {
@@ -41,11 +42,11 @@ func TestExtractArchive_AllowsDotRootEntry(t *testing.T) {
 	if err := ExtractArchive(archivePath, extractRoot); err != nil {
 		t.Fatalf("ExtractArchive() err=%v", err)
 	}
-	got, err := os.ReadFile(filepath.Join(extractRoot, "a.txt"))
+	got, err := os.ReadFile(filepath.Join(extractRoot, "techsupport_x.txt"))
 	if err != nil {
 		t.Fatalf("read extracted file: %v", err)
 	}
-	if string(got) != "ok" {
-		t.Fatalf("extracted contents=%q, want %q", string(got), "ok")
+	if string(got) != body {
+		t.Fatalf("extracted contents=%q, want %q", string(got), body)
 	}
 }

@@ -21,6 +21,11 @@ Install (pick one):
 - From GitHub (requires Go 1.22+): `go install github.com/seemrkz/netsec-sk/cmd/netsec-sk@main`
 - From a release artifact: download a `netsec-sk_*` binary from `dist/release/` (or GitHub Releases), then put it on your `PATH`.
 
+Help and usage:
+
+- `netsec-sk help`
+- `netsec-sk help <command>`
+
 Initialize a state repo (this is where `envs/` and snapshots live):
 
 ```sh
@@ -43,6 +48,11 @@ netsec-sk open --repo "$repo" --env prod
 ```
 
 Note: if you omit `--repo`, the default repo path is `./default`.
+
+Troubleshooting:
+
+- If ingest fails, check the attempt log: `<repo>/.netsec-state/ingest.ndjson`
+- Re-run with `--keep-extract` to preserve extracted files under `<repo>/.netsec-state/extract/<run_id>/...`
 
 ## MVP Summary
 
