@@ -1,5 +1,95 @@
 # Changelog
 
+## TASK-00038
+
+- Date: 2026-02-10
+- Type: Changed
+- Summary: Closed v0.6.0 acceptance with a deterministic operator test packet and follow-on plan/amendment artifacts for single-lane execution tracking.
+- Files:
+  - `docs/plan.v0.4.0.md`
+  - `docs/amendments/AMD-00006-v0-6-0-follow-on-plan.v0.4.0.md`
+  - `docs/user-journey-test-v0.6.0.md`
+  - `docs/changelog.md`
+- Verification:
+  - `go test ./e2e -run TestMVPAcceptanceChecklist` -> `ok   github.com/seemrkz/netsec-sk/e2e`
+  - `go test ./...` -> `ok` across all packages
+  - Manual checklist run in temp repo -> `PASS` (env list ordering verified, history hash -> topology historical verified, `git status --short` unchanged before/after historical read, invalid hash returned `E_USAGE`, missing artifact returned `E_IO`)
+- Commit proof:
+  - `commit_hash: <TBD>`
+  - `commit_message: TASK-00038: finalize v0.6.0 acceptance and user journey test script`
+
+## TASK-00037
+
+- Date: 2026-02-10
+- Type: Changed
+- Summary: Expanded v0.6.0 regression/acceptance coverage for representative environments, multi-TSF outcomes, and history-to-historical-topology UX; also ensured ingest writes exports before commit for topology-at-commit usability.
+- Files:
+  - `internal/cli/root_test.go`
+  - `internal/ingest/ingest_test.go`
+  - `internal/ingest/orchestrator.go`
+  - `e2e/mvp_test.go`
+- Verification:
+  - `go test ./internal/cli -run TestEnvRepresentativeIDs` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/ingest -run TestMultiTSFAttemptAndCommitOutcomes` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/state -run TestChangedScopeIncludesRouteWhenRoutingChanges` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
+  - `go test ./internal/export -run TestCSVHeadersAndOrdering` -> `ok   github.com/seemrkz/netsec-sk/internal/export`
+  - `go test ./...` -> `ok` across all packages
+- Commit proof:
+  - `commit_hash: 4191d3f`
+  - `commit_message: TASK-00037: add v0.6.0 acceptance and regression coverage`
+
+## TASK-00036
+
+- Date: 2026-02-10
+- Type: Changed
+- Summary: Replaced topology count output with Mermaid output and added deterministic `--at-commit` historical retrieval without working-tree mutation.
+- Files:
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+  - `internal/cli/task12_test.go`
+- Verification:
+  - `go test ./internal/cli -run TestTopologyCurrentMermaidOutput` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestTopologyAtCommitOutput` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestTopologyAtCommitValidationAndErrors` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+- Commit proof:
+  - `commit_hash: 9121759`
+  - `commit_message: TASK-00036: implement topology mermaid output with at-commit`
+
+## TASK-00035
+
+- Date: 2026-02-10
+- Type: Added
+- Summary: Implemented `history state` one-shot command with deterministic sort/order, header-only empty behavior, and help contract coverage.
+- Files:
+  - `internal/cli/root.go`
+  - `internal/cli/root_test.go`
+- Verification:
+  - `go test ./internal/cli -run TestHistoryStateCommandContract` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestHistoryStateSortOrder` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+  - `go test ./internal/cli -run TestHelpCommandContracts` -> `ok   github.com/seemrkz/netsec-sk/internal/cli`
+- Commit proof:
+  - `commit_hash: 1a88646`
+  - `commit_message: TASK-00035: implement history state command contract`
+
+## TASK-00034
+
+- Date: 2026-02-10
+- Type: Added
+- Summary: Added deterministic commit-ledger provenance fields (`changed_scope`, `changed_paths`) with scope classification and lexical repo-relative path capture.
+- Files:
+  - `internal/state/commits_ledger.go`
+  - `internal/state/scope.go`
+  - `internal/state/scope_test.go`
+  - `internal/ingest/orchestrator.go`
+  - `internal/ingest/ingest_test.go`
+- Verification:
+  - `go test ./internal/state -run TestChangedScopeClassifier` -> `ok   github.com/seemrkz/netsec-sk/internal/state`
+  - `go test ./internal/ingest -run TestCommitLedgerIncludesChangedScopeAndPaths` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+  - `go test ./internal/ingest -run TestChangedPathsLexicalRepoRelative` -> `ok   github.com/seemrkz/netsec-sk/internal/ingest`
+- Commit proof:
+  - `commit_hash: 1479084`
+  - `commit_message: TASK-00034: add deterministic changed scope and paths to commit ledger`
+
 ## TASK-00033
 
 - Date: 2026-02-09
