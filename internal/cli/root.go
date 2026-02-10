@@ -502,10 +502,46 @@ func runIngest(parsed ParseResult, stdout, stderr io.Writer) int {
 	)
 
 	if summary.ParseErrorFatal > 0 {
-		return ExitCodeFor(NewAppError(ErrParseFatal, "ingest completed with fatal parse errors"))
+		if len(summary.Issues) > 0 {
+			_, _ = fmt.Fprintln(stdout, "Ingest issues (fatal):")
+			for _, issue := range summary.Issues {
+				if issue.Result != "parse_error_fatal" {
+					continue
+				}
+				line := fmt.Sprintf("- %s: %s", issue.InputArchivePath, issue.Notes)
+				if issue.Error != "" {
+					line += fmt.Sprintf(" (%s)", issue.Error)
+				}
+				_, _ = fmt.Fprintln(stdout, line)
+			}
+		}
+
+		logPath := filepath.Join(parsed.GlobalOptions.RepoPath, ".netsec-state", "ingest.ndjson")
+		msg := fmt.Sprintf("ingest completed with fatal errors (attempted=%d committed=%d); log=%s; rerun with --keep-extract for forensic context", summary.Attempted, summary.Committed, logPath)
+		appErr := NewAppError(ErrParseFatal, msg)
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
 	}
 	if summary.ParseErrorPartial > 0 {
-		return ExitCodeFor(NewAppError(ErrParsePart, "ingest completed with partial parse warnings"))
+		if len(summary.Issues) > 0 {
+			_, _ = fmt.Fprintln(stdout, "Ingest issues (partial):")
+			for _, issue := range summary.Issues {
+				if issue.Result != "parse_error_partial" {
+					continue
+				}
+				line := fmt.Sprintf("- %s: %s", issue.InputArchivePath, issue.Notes)
+				if issue.Error != "" {
+					line += fmt.Sprintf(" (%s)", issue.Error)
+				}
+				_, _ = fmt.Fprintln(stdout, line)
+			}
+		}
+
+		logPath := filepath.Join(parsed.GlobalOptions.RepoPath, ".netsec-state", "ingest.ndjson")
+		msg := fmt.Sprintf("ingest completed with partial parse warnings (attempted=%d committed=%d); log=%s", summary.Attempted, summary.Committed, logPath)
+		appErr := NewAppError(ErrParsePart, msg)
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
 	}
 	return 0
 }

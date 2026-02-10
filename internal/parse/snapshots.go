@@ -1,11 +1,14 @@
 package parse
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 func ParseFirewallSnapshot(ctx ParseContext, files map[string]string) (map[string]any, bool, error) {
 	serial := firstSerial(files)
 	if serial == "" {
-		return nil, false, ErrParseFatal
+		return nil, false, fmt.Errorf("missing serial: %w", ErrParseFatal)
 	}
 
 	hostname := getKVAny(files, "hostname")
@@ -35,7 +38,7 @@ func ParseFirewallSnapshot(ctx ParseContext, files map[string]string) (map[strin
 func ParsePanoramaSnapshot(ctx ParseContext, files map[string]string) (map[string]any, bool, error) {
 	serial := firstSerial(files)
 	if serial == "" {
-		return nil, false, ErrParseFatal
+		return nil, false, fmt.Errorf("missing serial: %w", ErrParseFatal)
 	}
 
 	hostname := getKVAny(files, "hostname")

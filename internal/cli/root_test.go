@@ -413,6 +413,33 @@ func TestIngestExitCodePrecedence(t *testing.T) {
 	}
 }
 
+func TestIngestReportsContextOnSummaryFailures(t *testing.T) {
+	original := ingestRun
+	defer func() { ingestRun = original }()
+
+	ingestRun = func(opts ingest.RunOptions) (ingest.Summary, error) {
+		return ingest.Summary{
+			Attempted:       1,
+			ParseErrorFatal: 1,
+			Issues: []ingest.Issue{
+				{InputArchivePath: "/x/a.tgz", Result: "parse_error_fatal", Notes: "extract_failed", Error: "unsafe archive entry path"},
+			},
+		}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--repo", "/tmp/repo", "--env", "prod", "ingest", "/x/a.tgz"}, &stdout, &stderr)
+	if code != 6 {
+		t.Fatalf("Run(ingest) code=%d, want 6 stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Ingest issues (fatal):") || !strings.Contains(stdout.String(), "- /x/a.tgz: extract_failed") {
+		t.Fatalf("stdout missing issues context: %q", stdout.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_PARSE_FATAL ") || !strings.Contains(stderr.String(), "log=/tmp/repo/.netsec-state/ingest.ndjson") {
+		t.Fatalf("stderr missing parse fatal context: %q", stderr.String())
+	}
+}
+
 func TestIngestErrorCodeMapping(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -601,15 +628,15 @@ func TestHistoryStateCommandContract(t *testing.T) {
 	}
 	rows := []map[string]any{
 		{
-			"committed_at_utc":   "2026-02-10T10:00:00Z",
-			"git_commit":         "aaa111",
-			"tsf_id":             "S1|a.tgz",
-			"tsf_original_name":  "a.tgz",
-			"entity_type":        "firewall",
-			"entity_id":          "S1",
-			"state_sha256":       "abc",
-			"changed_scope":      "device",
-			"changed_paths":      []string{"envs/prod/state/devices/S1/latest.json"},
+			"committed_at_utc":  "2026-02-10T10:00:00Z",
+			"git_commit":        "aaa111",
+			"tsf_id":            "S1|a.tgz",
+			"tsf_original_name": "a.tgz",
+			"entity_type":       "firewall",
+			"entity_id":         "S1",
+			"state_sha256":      "abc",
+			"changed_scope":     "device",
+			"changed_paths":     []string{"envs/prod/state/devices/S1/latest.json"},
 		},
 	}
 	var b strings.Builder
@@ -677,37 +704,37 @@ func TestHistoryStateSortOrder(t *testing.T) {
 
 	rows := []map[string]any{
 		{
-			"committed_at_utc":   "2026-02-10T10:00:00Z",
-			"git_commit":         "bbb222",
-			"tsf_id":             "S2|b.tgz",
-			"tsf_original_name":  "b.tgz",
-			"entity_type":        "firewall",
-			"entity_id":          "S2",
-			"state_sha256":       "hash2",
-			"changed_scope":      "feature",
-			"changed_paths":      []string{"envs/prod/state/devices/S2/latest.json"},
+			"committed_at_utc":  "2026-02-10T10:00:00Z",
+			"git_commit":        "bbb222",
+			"tsf_id":            "S2|b.tgz",
+			"tsf_original_name": "b.tgz",
+			"entity_type":       "firewall",
+			"entity_id":         "S2",
+			"state_sha256":      "hash2",
+			"changed_scope":     "feature",
+			"changed_paths":     []string{"envs/prod/state/devices/S2/latest.json"},
 		},
 		{
-			"committed_at_utc":   "2026-02-09T10:00:00Z",
-			"git_commit":         "zzz999",
-			"tsf_id":             "S1|a.tgz",
-			"tsf_original_name":  "a.tgz",
-			"entity_type":        "firewall",
-			"entity_id":          "S1",
-			"state_sha256":       "hash1",
-			"changed_scope":      "device",
-			"changed_paths":      []string{"envs/prod/state/devices/S1/latest.json"},
+			"committed_at_utc":  "2026-02-09T10:00:00Z",
+			"git_commit":        "zzz999",
+			"tsf_id":            "S1|a.tgz",
+			"tsf_original_name": "a.tgz",
+			"entity_type":       "firewall",
+			"entity_id":         "S1",
+			"state_sha256":      "hash1",
+			"changed_scope":     "device",
+			"changed_paths":     []string{"envs/prod/state/devices/S1/latest.json"},
 		},
 		{
-			"committed_at_utc":   "2026-02-10T10:00:00Z",
-			"git_commit":         "aaa111",
-			"tsf_id":             "S3|c.tgz",
-			"tsf_original_name":  "c.tgz",
-			"entity_type":        "firewall",
-			"entity_id":          "S3",
-			"state_sha256":       "hash3",
-			"changed_scope":      "route",
-			"changed_paths":      []string{"envs/prod/state/devices/S3/latest.json"},
+			"committed_at_utc":  "2026-02-10T10:00:00Z",
+			"git_commit":        "aaa111",
+			"tsf_id":            "S3|c.tgz",
+			"tsf_original_name": "c.tgz",
+			"entity_type":       "firewall",
+			"entity_id":         "S3",
+			"state_sha256":      "hash3",
+			"changed_scope":     "route",
+			"changed_paths":     []string{"envs/prod/state/devices/S3/latest.json"},
 		},
 	}
 	var b strings.Builder

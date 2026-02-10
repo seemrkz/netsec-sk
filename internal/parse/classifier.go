@@ -2,6 +2,7 @@ package parse
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -37,14 +38,14 @@ type ParseOutput struct {
 func ParseSnapshot(ctx ParseContext, files map[string]string) (ParseOutput, error) {
 	entityType, err := ClassifyEntity(files)
 	if err != nil {
-		return ParseOutput{Result: "parse_error_fatal"}, err
+		return ParseOutput{Result: "parse_error_fatal"}, fmt.Errorf("classify entity: %w", err)
 	}
 
 	switch entityType {
 	case EntityFirewall:
 		out, partial, err := ParseFirewallSnapshot(ctx, files)
 		if err != nil {
-			return ParseOutput{Result: "parse_error_fatal"}, err
+			return ParseOutput{Result: "parse_error_fatal"}, fmt.Errorf("parse firewall snapshot: %w", err)
 		}
 		result := "ok"
 		if partial {
@@ -54,7 +55,7 @@ func ParseSnapshot(ctx ParseContext, files map[string]string) (ParseOutput, erro
 	case EntityPanorama:
 		out, partial, err := ParsePanoramaSnapshot(ctx, files)
 		if err != nil {
-			return ParseOutput{Result: "parse_error_fatal"}, err
+			return ParseOutput{Result: "parse_error_fatal"}, fmt.Errorf("parse panorama snapshot: %w", err)
 		}
 		result := "ok"
 		if partial {

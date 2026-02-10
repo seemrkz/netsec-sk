@@ -42,6 +42,17 @@ type Summary struct {
 	SkippedStateUnchanged int
 	ParseErrorPartial     int
 	ParseErrorFatal       int
+	Issues                []Issue
+}
+
+type Issue struct {
+	InputArchivePath string
+	Result           string
+	Notes            string
+	Error            string
+	TSFID            string
+	EntityType       string
+	EntityID         string
 }
 
 type RunOptions struct {
@@ -101,6 +112,11 @@ func Run(options RunOptions) (Summary, error) {
 			summary.ParseErrorFatal++
 			entry.Result = "parse_error_fatal"
 			entry.Notes = "unsupported_extension"
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+			})
 			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
 				return Summary{}, err
 			}
@@ -110,6 +126,18 @@ func Run(options RunOptions) (Summary, error) {
 		extractDir, err := BeginTSFExtractDir(prep.RunExtractRoot, input, idx+1)
 		if err != nil {
 			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			entry.Notes = "extract_dir_create_failed"
+			entry.Error = err.Error()
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+			})
+			if appendErr := AppendIngestAttempt(ingestLogPath, entry); appendErr != nil {
+				return Summary{}, appendErr
+			}
 			continue
 		}
 
@@ -118,6 +146,14 @@ func Run(options RunOptions) (Summary, error) {
 			_ = FinishTSFExtractDir(extractDir, options.KeepExtract)
 			summary.ParseErrorFatal++
 			entry.Result = "parse_error_fatal"
+			entry.Notes = "extract_failed"
+			entry.Error = extractErr.Error()
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+			})
 			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
 				return Summary{}, err
 			}
@@ -129,6 +165,14 @@ func Run(options RunOptions) (Summary, error) {
 		if err != nil {
 			summary.ParseErrorFatal++
 			entry.Result = "parse_error_fatal"
+			entry.Notes = "extract_read_failed"
+			entry.Error = err.Error()
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+			})
 			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
 				return Summary{}, err
 			}
@@ -146,6 +190,17 @@ func Run(options RunOptions) (Summary, error) {
 		if err != nil || out.Result == "parse_error_fatal" {
 			summary.ParseErrorFatal++
 			entry.Result = "parse_error_fatal"
+			entry.Notes = "parse_failed"
+			if err != nil {
+				entry.Error = err.Error()
+			}
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+				TSFID:            entry.TSFID,
+			})
 			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
 				return Summary{}, err
 			}
@@ -183,6 +238,17 @@ func Run(options RunOptions) (Summary, error) {
 		if err != nil {
 			summary.ParseErrorFatal++
 			entry.Result = "parse_error_fatal"
+			entry.Notes = "state_persist_failed"
+			entry.Error = err.Error()
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+				TSFID:            entry.TSFID,
+				EntityType:       entry.EntityType,
+				EntityID:         entry.EntityID,
+			})
 			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
 				return Summary{}, err
 			}
@@ -192,6 +258,15 @@ func Run(options RunOptions) (Summary, error) {
 		if out.Result == "parse_error_partial" {
 			summary.ParseErrorPartial++
 			entry.Result = "parse_error_partial"
+			entry.Notes = "parse_partial"
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				TSFID:            entry.TSFID,
+				EntityType:       entry.EntityType,
+				EntityID:         entry.EntityID,
+			})
 			if err := AppendIngestAttempt(ingestLogPath, entry); err != nil {
 				return Summary{}, err
 			}
@@ -221,6 +296,16 @@ func Run(options RunOptions) (Summary, error) {
 			summary.ParseErrorFatal++
 			entry.Result = "parse_error_fatal"
 			entry.Notes = "export_failed"
+			entry.Error = err.Error()
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+				TSFID:            entry.TSFID,
+				EntityType:       entry.EntityType,
+				EntityID:         entry.EntityID,
+			})
 			if appendErr := AppendIngestAttempt(ingestLogPath, entry); appendErr != nil {
 				return Summary{}, appendErr
 			}
@@ -232,6 +317,16 @@ func Run(options RunOptions) (Summary, error) {
 			summary.ParseErrorFatal++
 			entry.Result = "parse_error_fatal"
 			entry.Notes = "commit_failed"
+			entry.Error = err.Error()
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+				TSFID:            entry.TSFID,
+				EntityType:       entry.EntityType,
+				EntityID:         entry.EntityID,
+			})
 			if appendErr := AppendIngestAttempt(ingestLogPath, entry); appendErr != nil {
 				return Summary{}, appendErr
 			}
@@ -254,6 +349,20 @@ func Run(options RunOptions) (Summary, error) {
 			ChangedScope:   state.ChangedScope(previousSnapshot, out.Snapshot),
 			ChangedPaths:   state.BuildChangedStatePaths(prep.EnvID, string(out.EntityType), out.EntityID, filepath.Base(snapshotPath)),
 		}); err != nil {
+			summary.ParseErrorFatal++
+			entry.Result = "parse_error_fatal"
+			entry.Notes = "commit_ledger_append_failed"
+			entry.Error = err.Error()
+			summary.Issues = append(summary.Issues, Issue{
+				InputArchivePath: input,
+				Result:           entry.Result,
+				Notes:            entry.Notes,
+				Error:            entry.Error,
+				TSFID:            entry.TSFID,
+				EntityType:       entry.EntityType,
+				EntityID:         entry.EntityID,
+			})
+			_ = AppendIngestAttempt(ingestLogPath, entry)
 			return Summary{}, err
 		}
 	}
@@ -499,6 +608,7 @@ type IngestLogEntry struct {
 	Result           string `json:"result,omitempty"`
 	GitCommit        string `json:"git_commit,omitempty"`
 	Notes            string `json:"notes,omitempty"`
+	Error            string `json:"error,omitempty"`
 }
 
 func ReadSeenTSFIDs(ingestLogPath string, envID string) (map[string]struct{}, error) {
