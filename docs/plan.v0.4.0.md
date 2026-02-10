@@ -166,7 +166,7 @@ Execution rule: strict top-to-bottom sequencing.
   - `go test ./...` -> `ok` across all packages
   - manual checklist executed once in temp repo -> `PASS`
 - Commit proof:
-  - `commit_hash: <TBD>`
+  - `commit_hash: 8eea9b6`
   - `commit_message: TASK-00038: finalize v0.6.0 acceptance and user journey test script`
 
 ## 5. User Feel / Experience Validation

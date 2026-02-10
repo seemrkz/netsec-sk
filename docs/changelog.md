@@ -15,7 +15,7 @@
   - `go test ./...` -> `ok` across all packages
   - Manual checklist run in temp repo -> `PASS` (env list ordering verified, history hash -> topology historical verified, `git status --short` unchanged before/after historical read, invalid hash returned `E_USAGE`, missing artifact returned `E_IO`)
 - Commit proof:
-  - `commit_hash: <TBD>`
+  - `commit_hash: 8eea9b6`
   - `commit_message: TASK-00038: finalize v0.6.0 acceptance and user journey test script`
 
 ## TASK-00037
