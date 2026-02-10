@@ -28,6 +28,28 @@ func TestFirewallSnapshotRequiredFields(t *testing.T) {
 	}
 }
 
+func TestFirewallSnapshotAcceptsCommonTSFKeyVariants(t *testing.T) {
+	ctx := ParseContext{TSFID: "S1|techsupport.tgz", TSFOriginalName: "techsupport.tgz", InputArchiveName: "techsupport.tgz", IngestedAtUTC: "2026-02-09T00:00:00Z"}
+	files := map[string]string{
+		"a.txt": "serial: S1\nhostname: fw1\nip-address: 10.0.0.1\nmodel: PA-5450\nsw-version: 11.2.4-h7\npanorama\n",
+	}
+
+	out, err := ParseSnapshot(ctx, files)
+	if err != nil {
+		t.Fatalf("ParseSnapshot() err=%v", err)
+	}
+	if out.Result != "ok" {
+		t.Fatalf("result=%q, want ok", out.Result)
+	}
+	if out.EntityType != EntityFirewall {
+		t.Fatalf("entityType=%q, want firewall", out.EntityType)
+	}
+	dev := out.Snapshot["device"].(map[string]any)
+	if dev["mgmt_ip"] != "10.0.0.1" || dev["sw_version"] != "11.2.4-h7" {
+		t.Fatalf("unexpected device fields: %#v", dev)
+	}
+}
+
 func TestPanoramaSnapshotRequiredFields(t *testing.T) {
 	ctx := ParseContext{TSFID: "P1|p.tgz", TSFOriginalName: "p.tgz", InputArchiveName: "p.tgz", IngestedAtUTC: "2026-02-09T00:00:00Z"}
 	files := map[string]string{

@@ -79,7 +79,12 @@ func ExtractArchive(archivePath string, extractRoot string) error {
 
 func safeExtractTarget(extractRoot string, archiveEntryName string) (string, error) {
 	clean := filepath.Clean(filepath.FromSlash(strings.TrimSpace(archiveEntryName)))
-	if clean == "." || clean == "" {
+	// Many tarballs include "." / "./" as the first directory entry. Treat that as a no-op
+	// that resolves to the extraction root.
+	if clean == "." {
+		return extractRoot, nil
+	}
+	if clean == "" {
 		return "", ErrUnsafeArchivePath
 	}
 	if filepath.IsAbs(clean) {

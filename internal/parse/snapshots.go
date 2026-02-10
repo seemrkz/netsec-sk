@@ -8,15 +8,19 @@ func ParseFirewallSnapshot(ctx ParseContext, files map[string]string) (map[strin
 		return nil, false, ErrParseFatal
 	}
 
-	content := strings.ToLower(joinContent(files))
-	partial := !strings.Contains(content, "hostname:") || !strings.Contains(content, "mgmt_ip:")
+	hostname := getKVAny(files, "hostname")
+	mgmtIP := getKVAny(files, "mgmt_ip", "mgmt-ip", "mgmt ip", "ip-address", "ip address")
+	model := getKVAny(files, "model")
+	swVersion := getKVAny(files, "sw_version", "sw-version", "sw version", "version")
+
+	partial := hostname == "" || mgmtIP == ""
 	device := map[string]any{
 		"id":         serial,
-		"hostname":   getKV(files, "hostname"),
+		"hostname":   hostname,
 		"serial":     serial,
-		"model":      getKV(files, "model"),
-		"sw_version": getKV(files, "sw_version"),
-		"mgmt_ip":    getKV(files, "mgmt_ip"),
+		"model":      model,
+		"sw_version": swVersion,
+		"mgmt_ip":    mgmtIP,
 	}
 
 	snapshot := baseSnapshot(ctx)
@@ -34,15 +38,19 @@ func ParsePanoramaSnapshot(ctx ParseContext, files map[string]string) (map[strin
 		return nil, false, ErrParseFatal
 	}
 
-	content := strings.ToLower(joinContent(files))
-	partial := !strings.Contains(content, "hostname:") || !strings.Contains(content, "mgmt_ip:")
+	hostname := getKVAny(files, "hostname")
+	mgmtIP := getKVAny(files, "mgmt_ip", "mgmt-ip", "mgmt ip", "ip-address", "ip address")
+	model := getKVAny(files, "model")
+	version := getKVAny(files, "version", "sw_version", "sw-version", "sw version")
+
+	partial := hostname == "" || mgmtIP == ""
 	inst := map[string]any{
 		"id":       serial,
-		"hostname": getKV(files, "hostname"),
+		"hostname": hostname,
 		"serial":   serial,
-		"model":    getKV(files, "model"),
-		"version":  getKV(files, "version"),
-		"mgmt_ip":  getKV(files, "mgmt_ip"),
+		"model":    model,
+		"version":  version,
+		"mgmt_ip":  mgmtIP,
 	}
 	cfg := map[string]any{
 		"device_groups":   []any{},
@@ -79,6 +87,15 @@ func getKV(files map[string]string, key string) string {
 			if strings.HasPrefix(strings.ToLower(l), target) {
 				return strings.TrimSpace(l[len(target):])
 			}
+		}
+	}
+	return ""
+}
+
+func getKVAny(files map[string]string, keys ...string) string {
+	for _, key := range keys {
+		if v := getKV(files, key); v != "" {
+			return v
 		}
 	}
 	return ""
