@@ -12,6 +12,38 @@ Git-backed repo for change tracking and analysis.
 - Constitution/governance: `docs/AGENTS.md`
 - Legacy draft spec (superseded): `docs/netsec-sk_mvp_spec_v0.4.md`
 
+## Quickstart
+
+Prereqs: `git` installed and available on `PATH`.
+
+Install (pick one):
+
+- From GitHub (requires Go 1.22+): `go install github.com/seemrkz/netsec-sk/cmd/netsec-sk@main`
+- From a release artifact: download a `netsec-sk_*` binary from `dist/release/` (or GitHub Releases), then put it on your `PATH`.
+
+Initialize a state repo (this is where `envs/` and snapshots live):
+
+```sh
+repo="$(mktemp -d)"
+netsec-sk init --repo "$repo"
+git -C "$repo" config user.name "NetSecSK"
+git -C "$repo" config user.email "netsec-sk@example.com"
+netsec-sk env create prod --repo "$repo"
+```
+
+Ingest TSFs and export derived views:
+
+```sh
+netsec-sk ingest --repo "$repo" --env prod /path/to/tsf1.tgz /path/to/tsf2.tgz
+netsec-sk export --repo "$repo" --env prod
+netsec-sk devices --repo "$repo" --env prod
+netsec-sk show device <DEVICE_ID> --repo "$repo" --env prod
+netsec-sk topology --repo "$repo" --env prod
+netsec-sk open --repo "$repo" --env prod
+```
+
+Note: if you omit `--repo`, the default repo path is `./default`.
+
 ## MVP Summary
 
 - Ingest `.tgz` and `.tar.gz` TSFs (mixed firewall + Panorama batches).
