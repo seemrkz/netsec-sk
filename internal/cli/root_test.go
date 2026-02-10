@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -520,6 +521,7 @@ func TestHelpCommandContracts(t *testing.T) {
 		"init: initialize repository",
 		"env: list/create environments",
 		"ingest: ingest TSF archives into state",
+		"history: print deterministic state-change history",
 		"open: interactive shell",
 	}
 	for _, r := range required {
@@ -537,6 +539,165 @@ func TestHelpCommandContracts(t *testing.T) {
 		if !strings.Contains(stdout.String(), label) {
 			t.Fatalf("help ingest missing %q in %q", label, stdout.String())
 		}
+	}
+}
+
+func TestHistoryStateCommandContract(t *testing.T) {
+	repoPath := t.TempDir()
+	envID := "prod"
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "history", "state"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("history state empty code=%d stderr=%q", code, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("history state empty stderr=%q, want empty", stderr.String())
+	}
+	if stdout.String() != "COMMITTED_AT_UTC\tGIT_COMMIT\tTSF_ID\tTSF_ORIGINAL_NAME\tCHANGED_SCOPE\n" {
+		t.Fatalf("history state empty output mismatch: %q", stdout.String())
+	}
+
+	ledgerPath := filepath.Join(repoPath, "envs", envID, "state", "commits.ndjson")
+	if err := os.MkdirAll(filepath.Dir(ledgerPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rows := []map[string]any{
+		{
+			"committed_at_utc":   "2026-02-10T10:00:00Z",
+			"git_commit":         "aaa111",
+			"tsf_id":             "S1|a.tgz",
+			"tsf_original_name":  "a.tgz",
+			"entity_type":        "firewall",
+			"entity_id":          "S1",
+			"state_sha256":       "abc",
+			"changed_scope":      "device",
+			"changed_paths":      []string{"envs/prod/state/devices/S1/latest.json"},
+		},
+	}
+	var b strings.Builder
+	for _, row := range rows {
+		line, err := json.Marshal(row)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.Write(line)
+		b.WriteByte('\n')
+	}
+	if err := os.WriteFile(ledgerPath, []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"history", "state", "--repo", repoPath, "--env", envID}, &stdout, &stderr); code != 0 {
+		t.Fatalf("history state command-first code=%d stderr=%q", code, stderr.String())
+	}
+	want := "COMMITTED_AT_UTC\tGIT_COMMIT\tTSF_ID\tTSF_ORIGINAL_NAME\tCHANGED_SCOPE\n" +
+		"2026-02-10T10:00:00Z\taaa111\tS1|a.tgz\ta.tgz\tdevice\n"
+	if stdout.String() != want {
+		t.Fatalf("history state output mismatch:\n%s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"history", "state", "extra", "--repo", repoPath, "--env", envID}, &stdout, &stderr); code != 2 {
+		t.Fatalf("history state usage code=%d want 2 stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE usage: netsec-sk history state") {
+		t.Fatalf("history state usage stderr mismatch: %q", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"history", "--repo", repoPath, "--env", envID}, &stdout, &stderr); code != 2 {
+		t.Fatalf("history missing subcommand code=%d want 2 stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE history requires a subcommand: state") {
+		t.Fatalf("history missing subcommand stderr mismatch: %q", stderr.String())
+	}
+
+	if err := os.WriteFile(ledgerPath, []byte("{bad-json}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "history", "state"}, &stdout, &stderr); code != 6 {
+		t.Fatalf("history parse error code=%d want 6 stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_IO ") {
+		t.Fatalf("history parse error stderr mismatch: %q", stderr.String())
+	}
+}
+
+func TestHistoryStateSortOrder(t *testing.T) {
+	repoPath := t.TempDir()
+	envID := "prod"
+	ledgerPath := filepath.Join(repoPath, "envs", envID, "state", "commits.ndjson")
+	if err := os.MkdirAll(filepath.Dir(ledgerPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	rows := []map[string]any{
+		{
+			"committed_at_utc":   "2026-02-10T10:00:00Z",
+			"git_commit":         "bbb222",
+			"tsf_id":             "S2|b.tgz",
+			"tsf_original_name":  "b.tgz",
+			"entity_type":        "firewall",
+			"entity_id":          "S2",
+			"state_sha256":       "hash2",
+			"changed_scope":      "feature",
+			"changed_paths":      []string{"envs/prod/state/devices/S2/latest.json"},
+		},
+		{
+			"committed_at_utc":   "2026-02-09T10:00:00Z",
+			"git_commit":         "zzz999",
+			"tsf_id":             "S1|a.tgz",
+			"tsf_original_name":  "a.tgz",
+			"entity_type":        "firewall",
+			"entity_id":          "S1",
+			"state_sha256":       "hash1",
+			"changed_scope":      "device",
+			"changed_paths":      []string{"envs/prod/state/devices/S1/latest.json"},
+		},
+		{
+			"committed_at_utc":   "2026-02-10T10:00:00Z",
+			"git_commit":         "aaa111",
+			"tsf_id":             "S3|c.tgz",
+			"tsf_original_name":  "c.tgz",
+			"entity_type":        "firewall",
+			"entity_id":          "S3",
+			"state_sha256":       "hash3",
+			"changed_scope":      "route",
+			"changed_paths":      []string{"envs/prod/state/devices/S3/latest.json"},
+		},
+	}
+	var b strings.Builder
+	for _, row := range rows {
+		line, err := json.Marshal(row)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.Write(line)
+		b.WriteByte('\n')
+	}
+	if err := os.WriteFile(ledgerPath, []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "history", "state"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("history state code=%d stderr=%q", code, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("history state stderr=%q, want empty", stderr.String())
+	}
+	want := "COMMITTED_AT_UTC\tGIT_COMMIT\tTSF_ID\tTSF_ORIGINAL_NAME\tCHANGED_SCOPE\n" +
+		"2026-02-09T10:00:00Z\tzzz999\tS1|a.tgz\ta.tgz\tdevice\n" +
+		"2026-02-10T10:00:00Z\taaa111\tS3|c.tgz\tc.tgz\troute\n" +
+		"2026-02-10T10:00:00Z\tbbb222\tS2|b.tgz\tb.tgz\tfeature\n"
+	if stdout.String() != want {
+		t.Fatalf("history state sort mismatch:\n%s", stdout.String())
 	}
 }
 

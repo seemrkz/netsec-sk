@@ -17,6 +17,7 @@ import (
 	exportpkg "github.com/seemrkz/netsec-sk/internal/export"
 	"github.com/seemrkz/netsec-sk/internal/ingest"
 	"github.com/seemrkz/netsec-sk/internal/repo"
+	"github.com/seemrkz/netsec-sk/internal/state"
 )
 
 const (
@@ -112,6 +113,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runPanorama(parsed, stdout, stderr)
 	case "show":
 		return runShow(parsed, stdout, stderr)
+	case "history":
+		return runHistory(parsed, stdout, stderr)
 	case "topology":
 		return runTopology(parsed, stdout, stderr)
 	case "help":
@@ -310,6 +313,103 @@ func runShow(parsed ParseResult, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runHistory(parsed ParseResult, stdout, stderr io.Writer) int {
+	if len(parsed.CommandArgs) < 2 {
+		appErr := NewAppError(ErrUsage, "history requires a subcommand: state")
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+
+	switch parsed.CommandArgs[1] {
+	case "state":
+		return runHistoryState(parsed, stdout, stderr)
+	default:
+		appErr := NewAppError(ErrUsage, fmt.Sprintf("unknown history subcommand: %s", parsed.CommandArgs[1]))
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+}
+
+func runHistoryState(parsed ParseResult, stdout, stderr io.Writer) int {
+	if len(parsed.CommandArgs) != 2 {
+		appErr := NewAppError(ErrUsage, "usage: netsec-sk history state [--repo <path>] [--env <env_id>]")
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+
+	rows, err := readHistoryStateRows(parsed.GlobalOptions.RepoPath, parsed.GlobalOptions.EnvID)
+	if err != nil {
+		appErr := NewAppError(ErrIO, err.Error())
+		writeErrorLine(stderr, appErr)
+		return ExitCodeFor(appErr)
+	}
+
+	_, _ = fmt.Fprintln(stdout, "COMMITTED_AT_UTC\tGIT_COMMIT\tTSF_ID\tTSF_ORIGINAL_NAME\tCHANGED_SCOPE")
+	for _, row := range rows {
+		_, _ = fmt.Fprintf(
+			stdout,
+			"%s\t%s\t%s\t%s\t%s\n",
+			row.CommittedAtUTC,
+			row.GitCommit,
+			row.TSFID,
+			row.TSFOriginal,
+			row.ChangedScope,
+		)
+	}
+	return 0
+}
+
+type historyStateRow struct {
+	CommittedAtUTC string
+	GitCommit      string
+	TSFID          string
+	TSFOriginal    string
+	ChangedScope   string
+}
+
+func readHistoryStateRows(repoPath, envID string) ([]historyStateRow, error) {
+	path := filepath.Join(repoPath, "envs", envID, "state", "commits.ndjson")
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	rows := make([]historyStateRow, 0)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var entry state.CommitLedgerEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			return nil, err
+		}
+		rows = append(rows, historyStateRow{
+			CommittedAtUTC: entry.CommittedAtUTC,
+			GitCommit:      entry.GitCommit,
+			TSFID:          entry.TSFID,
+			TSFOriginal:    entry.TSFOriginal,
+			ChangedScope:   entry.ChangedScope,
+		})
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].CommittedAtUTC == rows[j].CommittedAtUTC {
+			return rows[i].GitCommit < rows[j].GitCommit
+		}
+		return rows[i].CommittedAtUTC < rows[j].CommittedAtUTC
+	})
+	return rows, nil
+}
+
 func runHelp(parsed ParseResult, stdout, stderr io.Writer) int {
 	if len(parsed.CommandArgs) > 2 {
 		appErr := NewAppError(ErrUsage, "usage: netsec-sk help [command]")
@@ -325,6 +425,7 @@ func runHelp(parsed ParseResult, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stdout, "devices: list persisted firewall inventory")
 		_, _ = fmt.Fprintln(stdout, "panorama: list persisted panorama inventory")
 		_, _ = fmt.Fprintln(stdout, "show: pretty-print latest snapshot by id")
+		_, _ = fmt.Fprintln(stdout, "history: print deterministic state-change history")
 		_, _ = fmt.Fprintln(stdout, "topology: print topology edge/orphan counts")
 		_, _ = fmt.Fprintln(stdout, "help: show command usage details")
 		_, _ = fmt.Fprintln(stdout, "open: interactive shell")
@@ -538,6 +639,8 @@ func helpDetails(cmd string) (usage string, arguments string, example string) {
 		return "netsec-sk panorama [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk panorama --env prod"
 	case "show":
 		return "netsec-sk show <device|panorama> <id> [--repo <path>] [--env <env_id>]", "<device|panorama> <id>", "netsec-sk show device SER123 --env prod"
+	case "history":
+		return "netsec-sk history state [--repo <path>] [--env <env_id>]", "state", "netsec-sk history state --env prod"
 	case "topology":
 		return "netsec-sk topology [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk topology --env prod"
 	case "open":
