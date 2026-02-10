@@ -154,6 +154,7 @@ func Run(options RunOptions) (Summary, error) {
 		entry.EntityID = out.EntityID
 
 		latestPath, snapshotsDir := statePaths(options.RepoPath, prep.EnvID, string(out.EntityType), out.EntityID)
+		previousSnapshot := readLatestSnapshotMap(latestPath)
 		isNewDevice := !pathExists(latestPath)
 		if out.EntityType == parse.EntityFirewall {
 			device, _ := out.Snapshot["device"].(map[string]any)
@@ -236,6 +237,8 @@ func Run(options RunOptions) (Summary, error) {
 			EntityID:       out.EntityID,
 			StateSHA256:    stateSHA,
 			GitCommit:      gitCommit,
+			ChangedScope:   state.ChangedScope(previousSnapshot, out.Snapshot),
+			ChangedPaths:   state.BuildChangedStatePaths(prep.EnvID, string(out.EntityType), out.EntityID, filepath.Base(snapshotPath)),
 		}); err != nil {
 			return Summary{}, err
 		}
@@ -437,6 +440,18 @@ func statePaths(repoPath string, envID string, entityType string, entityID strin
 func pathExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func readLatestSnapshotMap(latestPath string) map[string]any {
+	data, err := os.ReadFile(latestPath)
+	if err != nil {
+		return nil
+	}
+	var snapshot map[string]any
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return nil
+	}
+	return snapshot
 }
 
 func readExistingDeviceDNS(latestPath string) (map[string]any, bool) {

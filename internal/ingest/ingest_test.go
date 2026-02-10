@@ -12,11 +12,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/seemrkz/netsec-sk/internal/repo"
+	"github.com/seemrkz/netsec-sk/internal/state"
 	"github.com/seemrkz/netsec-sk/internal/tsf"
 )
 
@@ -615,6 +617,99 @@ func TestCommittedResultCreatesOneCommit(t *testing.T) {
 	}
 }
 
+func TestCommitLedgerIncludesChangedScopeAndPaths(t *testing.T) {
+	repoPath := t.TempDir()
+	initRepoWithIdentity(t, repoPath)
+
+	archive := filepath.Join(repoPath, "fw.tgz")
+	if err := writeTGZ(archive, []tarEntry{{Name: "tmp/cli/fw.txt", Body: "firewall\nserial: L1\nhostname: fw-ledger\nmgmt_ip: 10.3.3.3"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archive},
+		Now:      time.Unix(1_700_003_000, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Run() err=%v", err)
+	}
+	if summary.Committed != 1 {
+		t.Fatalf("summary.committed=%d, want 1 (summary=%+v)", summary.Committed, summary)
+	}
+
+	entries := readCommitLedgerEntries(t, filepath.Join(repoPath, "envs", "prod", "state", "commits.ndjson"))
+	if len(entries) != 1 {
+		t.Fatalf("commit ledger rows=%d, want 1", len(entries))
+	}
+
+	row := entries[0]
+	if row.ChangedScope == "" {
+		t.Fatalf("changed_scope must be non-empty: %#v", row)
+	}
+	if row.ChangedScope != "device,feature,route,other" {
+		t.Fatalf("changed_scope=%q, want %q", row.ChangedScope, "device,feature,route,other")
+	}
+	if len(row.ChangedPaths) != 3 {
+		t.Fatalf("changed_paths len=%d, want 3 (%#v)", len(row.ChangedPaths), row.ChangedPaths)
+	}
+	if row.ChangedPaths[0] != "envs/prod/state/commits.ndjson" {
+		t.Fatalf("changed_paths[0]=%q, want commits ledger path", row.ChangedPaths[0])
+	}
+	if row.ChangedPaths[1] != "envs/prod/state/devices/L1/latest.json" {
+		t.Fatalf("changed_paths[1]=%q, want latest path", row.ChangedPaths[1])
+	}
+	if !strings.HasPrefix(row.ChangedPaths[2], "envs/prod/state/devices/L1/snapshots/") {
+		t.Fatalf("changed_paths[2]=%q, want snapshot path prefix", row.ChangedPaths[2])
+	}
+}
+
+func TestChangedPathsLexicalRepoRelative(t *testing.T) {
+	repoPath := t.TempDir()
+	initRepoWithIdentity(t, repoPath)
+
+	archive := filepath.Join(repoPath, "fw.tgz")
+	if err := writeTGZ(archive, []tarEntry{{Name: "tmp/cli/fw.txt", Body: "firewall\nserial: L2\nhostname: fw-ledger\nmgmt_ip: 10.4.4.4"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := Run(RunOptions{
+		RepoPath: repoPath,
+		EnvIDRaw: "prod",
+		Inputs:   []string{archive},
+		Now:      time.Unix(1_700_004_000, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Run() err=%v", err)
+	}
+	if summary.Committed != 1 {
+		t.Fatalf("summary.committed=%d, want 1 (summary=%+v)", summary.Committed, summary)
+	}
+
+	entries := readCommitLedgerEntries(t, filepath.Join(repoPath, "envs", "prod", "state", "commits.ndjson"))
+	if len(entries) != 1 {
+		t.Fatalf("commit ledger rows=%d, want 1", len(entries))
+	}
+	paths := entries[0].ChangedPaths
+	if len(paths) == 0 {
+		t.Fatal("changed_paths must be non-empty")
+	}
+	for _, p := range paths {
+		if filepath.IsAbs(p) {
+			t.Fatalf("changed path must be repo-relative, got %q", p)
+		}
+		if filepath.ToSlash(p) != p {
+			t.Fatalf("changed path must use forward slashes, got %q", p)
+		}
+	}
+	sorted := append([]string(nil), paths...)
+	sort.Strings(sorted)
+	if !reflect.DeepEqual(paths, sorted) {
+		t.Fatalf("changed_paths must be lexical, got=%#v want=%#v", paths, sorted)
+	}
+}
+
 type tarEntry struct {
 	Name     string
 	Body     string
@@ -672,4 +767,31 @@ func initRepoWithIdentity(t *testing.T, repoPath string) {
 	if err := exec.Command("git", "-C", repoPath, "config", "user.name", "Tests").Run(); err != nil {
 		t.Fatalf("git config user.name failed: %v", err)
 	}
+}
+
+func readCommitLedgerEntries(t *testing.T, path string) []state.CommitLedgerEntry {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open commit ledger err=%v", err)
+	}
+	defer f.Close()
+
+	out := make([]state.CommitLedgerEntry, 0)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var row state.CommitLedgerEntry
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("invalid commit ledger row: %v", err)
+		}
+		out = append(out, row)
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("scan commit ledger err=%v", err)
+	}
+	return out
 }

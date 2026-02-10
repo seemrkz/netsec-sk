@@ -14,6 +14,8 @@ type CommitLedgerEntry struct {
 	EntityID       string `json:"entity_id"`
 	StateSHA256    string `json:"state_sha256"`
 	GitCommit      string `json:"git_commit"`
+	ChangedScope   string   `json:"changed_scope"`
+	ChangedPaths   []string `json:"changed_paths"`
 	Summary        string `json:"summary,omitempty"`
 }
 
