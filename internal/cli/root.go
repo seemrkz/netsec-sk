@@ -2,13 +2,14 @@ package cli
 
 import (
 	"bufio"
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -37,6 +38,7 @@ type ParseResult struct {
 
 var ingestRun = ingest.Run
 var exportRun = exportpkg.Run
+var topologyCommitHashRE = regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
 
 func ParseGlobalFlags(args []string) (ParseResult, error) {
 	opts := GlobalOptions{
@@ -426,7 +428,7 @@ func runHelp(parsed ParseResult, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stdout, "panorama: list persisted panorama inventory")
 		_, _ = fmt.Fprintln(stdout, "show: pretty-print latest snapshot by id")
 		_, _ = fmt.Fprintln(stdout, "history: print deterministic state-change history")
-		_, _ = fmt.Fprintln(stdout, "topology: print topology edge/orphan counts")
+		_, _ = fmt.Fprintln(stdout, "topology: print Mermaid topology (current or historical commit)")
 		_, _ = fmt.Fprintln(stdout, "help: show command usage details")
 		_, _ = fmt.Fprintln(stdout, "open: interactive shell")
 		return 0
@@ -528,19 +530,21 @@ func runExport(parsed ParseResult, stdout, stderr io.Writer) int {
 }
 
 func runTopology(parsed ParseResult, stdout, stderr io.Writer) int {
-	if len(parsed.CommandArgs) != 1 {
-		appErr := NewAppError(ErrUsage, "usage: netsec-sk topology [--repo <path>] [--env <env_id>]")
+	atCommit, err := parseTopologyArgs(parsed.CommandArgs[1:])
+	if err != nil {
+		appErr := NewAppError(ErrUsage, err.Error())
 		writeErrorLine(stderr, appErr)
 		return ExitCodeFor(appErr)
 	}
-	edges, orphans, err := topologyCounts(parsed.GlobalOptions.RepoPath, parsed.GlobalOptions.EnvID)
+
+	mermaid, err := readTopologyMermaid(parsed.GlobalOptions.RepoPath, parsed.GlobalOptions.EnvID, atCommit)
 	if err != nil {
 		appErr := NewAppError(ErrIO, err.Error())
 		writeErrorLine(stderr, appErr)
 		return ExitCodeFor(appErr)
 	}
-	_, _ = fmt.Fprintf(stdout, "Topology edges: %d\n", edges)
-	_, _ = fmt.Fprintf(stdout, "Orphan zones: %d\n", orphans)
+
+	_, _ = io.WriteString(stdout, mermaid)
 	return 0
 }
 
@@ -642,7 +646,7 @@ func helpDetails(cmd string) (usage string, arguments string, example string) {
 	case "history":
 		return "netsec-sk history state [--repo <path>] [--env <env_id>]", "state", "netsec-sk history state --env prod"
 	case "topology":
-		return "netsec-sk topology [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk topology --env prod"
+		return "netsec-sk topology [--repo <path>] [--env <env_id>] [--at-commit <hash>]", "optional --at-commit <hash>", "netsec-sk topology --env prod --at-commit 0123abc"
 	case "open":
 		return "netsec-sk open [--repo <path>] [--env <env_id>]", "no positional args", "netsec-sk open --env prod"
 	case "help":
@@ -762,86 +766,41 @@ func readLatestDoc(path string) (map[string]any, error) {
 	return doc, nil
 }
 
-func topologyCounts(repoPath, envID string) (int, int, error) {
-	edgesPath := filepath.Join(repoPath, "envs", envID, "exports", "edges.csv")
-	nodesPath := filepath.Join(repoPath, "envs", envID, "exports", "nodes.csv")
-
-	edgeCount, connectedZones, err := readEdges(edgesPath)
-	if err != nil {
-		return 0, 0, err
-	}
-	allZones, err := readZoneNodes(nodesPath)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	orphanCount := 0
-	for zone := range allZones {
-		if _, ok := connectedZones[zone]; !ok {
-			orphanCount++
+func parseTopologyArgs(args []string) (string, error) {
+	switch len(args) {
+	case 0:
+		return "", nil
+	case 2:
+		if args[0] != "--at-commit" {
+			return "", fmt.Errorf("usage: netsec-sk topology [--repo <path>] [--env <env_id>] [--at-commit <hash>]")
 		}
+		if !topologyCommitHashRE.MatchString(args[1]) {
+			return "", fmt.Errorf("invalid --at-commit hash: %s", args[1])
+		}
+		return strings.ToLower(args[1]), nil
+	default:
+		return "", fmt.Errorf("usage: netsec-sk topology [--repo <path>] [--env <env_id>] [--at-commit <hash>]")
 	}
-	return edgeCount, orphanCount, nil
 }
 
-func readEdges(path string) (int, map[string]struct{}, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, map[string]struct{}{}, nil
+func readTopologyMermaid(repoPath, envID, atCommit string) (string, error) {
+	if atCommit == "" {
+		path := filepath.Join(repoPath, "envs", envID, "exports", "topology.mmd")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", err
 		}
-		return 0, nil, err
+		return string(data), nil
 	}
-	defer f.Close()
 
-	r := csv.NewReader(f)
-	rows, err := r.ReadAll()
+	relPath := filepath.ToSlash(filepath.Join("envs", envID, "exports", "topology.mmd"))
+	spec := atCommit + ":" + relPath
+	cmd := exec.Command("git", "-C", repoPath, "show", spec)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return 0, nil, err
+		return "", fmt.Errorf("git show %s: %w", spec, err)
 	}
-	if len(rows) == 0 {
-		return 0, map[string]struct{}{}, nil
-	}
-	connected := map[string]struct{}{}
-	for _, row := range rows[1:] {
-		if len(row) < 4 {
-			continue
-		}
-		if strings.HasPrefix(row[2], "zone_") {
-			connected[row[2]] = struct{}{}
-		}
-		if strings.HasPrefix(row[3], "zone_") {
-			connected[row[3]] = struct{}{}
-		}
-	}
-	return len(rows) - 1, connected, nil
-}
-
-func readZoneNodes(path string) (map[string]struct{}, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return map[string]struct{}{}, nil
-		}
-		return nil, err
-	}
-	defer f.Close()
-
-	r := csv.NewReader(f)
-	rows, err := r.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]struct{}{}
-	for _, row := range rows[1:] {
-		if len(row) < 2 {
-			continue
-		}
-		if row[1] == "zone" {
-			out[row[0]] = struct{}{}
-		}
-	}
-	return out, nil
+	return string(out), nil
 }
 
 func strField(v any) string {

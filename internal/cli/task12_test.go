@@ -14,11 +14,14 @@ func TestCommandOutputContracts(t *testing.T) {
 	ingestPath := filepath.Join(repo, "a.tgz")
 	devicePath := filepath.Join(repo, "envs", "default", "state", "devices", "id1")
 	panoPath := filepath.Join(repo, "envs", "default", "state", "panorama", "id2")
+	exportsPath := filepath.Join(repo, "envs", "default", "exports")
 	_ = writeTestTGZ(ingestPath)
 	_ = os.MkdirAll(devicePath, 0o755)
 	_ = os.MkdirAll(panoPath, 0o755)
+	_ = os.MkdirAll(exportsPath, 0o755)
 	_ = os.WriteFile(filepath.Join(devicePath, "latest.json"), []byte(`{"device":{"id":"id1","hostname":"fw1","model":"PA-440","sw_version":"11.0.0","mgmt_ip":"10.0.0.1"}}`), 0o644)
 	_ = os.WriteFile(filepath.Join(panoPath, "latest.json"), []byte(`{"panorama_instance":{"id":"id2","hostname":"pano1","model":"M-200","version":"11.0.0","mgmt_ip":"10.0.0.2"}}`), 0o644)
+	_ = os.WriteFile(filepath.Join(exportsPath, "topology.mmd"), []byte("graph TD\nA-->B\n"), 0o644)
 
 	// init supports both global-first and command-first invocation.
 	{
@@ -43,8 +46,8 @@ func TestCommandOutputContracts(t *testing.T) {
 		{[]string{"devices", "--repo", repo}, "DEVICE_ID\tHOSTNAME\tMODEL\tSW_VERSION\tMGMT_IP\nid1\tfw1\tPA-440\t11.0.0\t10.0.0.1\n", "exact"},
 		{[]string{"--repo", repo, "panorama"}, "PANORAMA_ID\tHOSTNAME\tMODEL\tVERSION\tMGMT_IP\nid2\tpano1\tM-200\t11.0.0\t10.0.0.2\n", "exact"},
 		{[]string{"panorama", "--repo", repo}, "PANORAMA_ID\tHOSTNAME\tMODEL\tVERSION\tMGMT_IP\nid2\tpano1\tM-200\t11.0.0\t10.0.0.2\n", "exact"},
-		{[]string{"--repo", repo, "topology"}, "Topology edges: 0\nOrphan zones: 0\n", "exact"},
-		{[]string{"topology", "--repo", repo}, "Topology edges: 0\nOrphan zones: 0\n", "exact"},
+		{[]string{"--repo", repo, "topology"}, "graph TD\nA-->B\n", "exact"},
+		{[]string{"topology", "--repo", repo}, "graph TD\nA-->B\n", "exact"},
 		{[]string{"--repo", repo, "--env", "default", "export"}, "Export complete: default\n", "exact"},
 		{[]string{"export", "--repo", repo, "--env", "default"}, "Export complete: default\n", "exact"},
 		{[]string{"--repo", repo, "ingest", ingestPath}, "Ingest complete: attempted=1 committed=1 skipped_duplicate_tsf=0 skipped_state_unchanged=0 parse_error_partial=0 parse_error_fatal=0\n", "exact"},

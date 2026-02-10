@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -254,6 +255,13 @@ func TestGlobalFlagPlacementCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(panoPath, "latest.json"), []byte(`{"kind":"panorama"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	exportsPath := filepath.Join(repoPath, "envs", "prod", "exports")
+	if err := os.MkdirAll(exportsPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(exportsPath, "topology.mmd"), []byte("graph TD\nA-->B\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -701,6 +709,153 @@ func TestHistoryStateSortOrder(t *testing.T) {
 	}
 }
 
+func TestTopologyCurrentMermaidOutput(t *testing.T) {
+	repoPath := t.TempDir()
+	envID := "prod"
+	exports := filepath.Join(repoPath, "envs", envID, "exports")
+	if err := os.MkdirAll(exports, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	want := "graph TD\nA[A-ID] --> B[B-ID]\n"
+	if err := os.WriteFile(filepath.Join(exports, "topology.mmd"), []byte(want), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "topology"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("topology current code=%d stderr=%q", code, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("topology current stderr=%q, want empty", stderr.String())
+	}
+	if stdout.String() != want {
+		t.Fatalf("topology current output=%q want=%q", stdout.String(), want)
+	}
+}
+
+func TestTopologyAtCommitOutput(t *testing.T) {
+	repoPath := t.TempDir()
+	initGitRepoForTests(t, repoPath)
+	envID := "prod"
+	exports := filepath.Join(repoPath, "envs", envID, "exports")
+	if err := os.MkdirAll(exports, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	first := "graph TD\nA-->B\n"
+	second := "graph TD\nA-->C\n"
+	topologyPath := filepath.Join(exports, "topology.mmd")
+
+	if err := os.WriteFile(topologyPath, []byte(first), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", repoPath, "add", "envs").CombinedOutput(); err != nil {
+		t.Fatalf("git add failed: %v out=%s", err, string(out))
+	}
+	if out, err := exec.Command("git", "-C", repoPath, "commit", "-m", "topology first").CombinedOutput(); err != nil {
+		t.Fatalf("git commit first failed: %v out=%s", err, string(out))
+	}
+	hashOut, err := exec.Command("git", "-C", repoPath, "rev-parse", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse failed: %v out=%s", err, string(hashOut))
+	}
+	firstHash := strings.TrimSpace(string(hashOut))
+
+	if err := os.WriteFile(topologyPath, []byte(second), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", repoPath, "add", "envs").CombinedOutput(); err != nil {
+		t.Fatalf("git add second failed: %v out=%s", err, string(out))
+	}
+	if out, err := exec.Command("git", "-C", repoPath, "commit", "-m", "topology second").CombinedOutput(); err != nil {
+		t.Fatalf("git commit second failed: %v out=%s", err, string(out))
+	}
+
+	statusBefore, err := exec.Command("git", "-C", repoPath, "status", "--short").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git status before failed: %v out=%s", err, string(statusBefore))
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "topology", "--at-commit", firstHash}, &stdout, &stderr); code != 0 {
+		t.Fatalf("topology at-commit code=%d stderr=%q", code, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("topology at-commit stderr=%q, want empty", stderr.String())
+	}
+	if stdout.String() != first {
+		t.Fatalf("topology at-commit output=%q want=%q", stdout.String(), first)
+	}
+
+	statusAfter, err := exec.Command("git", "-C", repoPath, "status", "--short").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git status after failed: %v out=%s", err, string(statusAfter))
+	}
+	if string(statusAfter) != string(statusBefore) {
+		t.Fatalf("topology at-commit must not mutate repo status before=%q after=%q", string(statusBefore), string(statusAfter))
+	}
+}
+
+func TestTopologyAtCommitValidationAndErrors(t *testing.T) {
+	repoPath := t.TempDir()
+	initGitRepoForTests(t, repoPath)
+	envID := "prod"
+
+	exports := filepath.Join(repoPath, "envs", envID, "exports")
+	if err := os.MkdirAll(exports, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(exports, "topology.mmd"), []byte("graph TD\nA-->B\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", repoPath, "add", "envs").CombinedOutput(); err != nil {
+		t.Fatalf("git add failed: %v out=%s", err, string(out))
+	}
+	if out, err := exec.Command("git", "-C", repoPath, "commit", "-m", "topology baseline").CombinedOutput(); err != nil {
+		t.Fatalf("git commit failed: %v out=%s", err, string(out))
+	}
+	hashOut, err := exec.Command("git", "-C", repoPath, "rev-parse", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse failed: %v out=%s", err, string(hashOut))
+	}
+	hash := strings.TrimSpace(string(hashOut))
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--repo", repoPath, "--env", envID, "topology", "--at-commit", "bad-hash"}, &stdout, &stderr); code != 2 {
+		t.Fatalf("invalid hash code=%d want 2 stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE invalid --at-commit hash: bad-hash") {
+		t.Fatalf("invalid hash stderr=%q", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"topology", "--at-commit", "--repo", repoPath, "--env", envID}, &stdout, &stderr); code != 2 {
+		t.Fatalf("missing hash value code=%d want 2 stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE usage: netsec-sk topology") {
+		t.Fatalf("missing hash value stderr=%q", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"topology", "--repo", repoPath, "--env", envID, "--at-commit", hash[:6]}, &stdout, &stderr); code != 2 {
+		t.Fatalf("short hash code=%d want 2 stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_USAGE invalid --at-commit hash: ") {
+		t.Fatalf("short hash stderr=%q", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := Run([]string{"--repo", repoPath, "--env", "missing", "topology", "--at-commit", hash}, &stdout, &stderr); code != 6 {
+		t.Fatalf("missing historical artifact code=%d want 6 stderr=%q", code, stderr.String())
+	}
+	if !strings.HasPrefix(stderr.String(), "ERROR E_IO ") {
+		t.Fatalf("missing historical artifact stderr=%q", stderr.String())
+	}
+}
+
 func TestQueryCommandsFromPersistedState(t *testing.T) {
 	repoPath := t.TempDir()
 	envID := "prod"
@@ -743,6 +898,10 @@ func TestQueryCommandsFromPersistedState(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(exports, "nodes.csv"), []byte(nodesCSV), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	topologyMMD := "graph TD\nzone_a_id_trust-->zone_b_id_inside\n"
+	if err := os.WriteFile(filepath.Join(exports, "topology.mmd"), []byte(topologyMMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	var stdout, stderr bytes.Buffer
 	if code := Run([]string{"--repo", repoPath, "--env", envID, "devices"}, &stdout, &stderr); code != 0 {
@@ -772,7 +931,7 @@ func TestQueryCommandsFromPersistedState(t *testing.T) {
 	if code := Run([]string{"--repo", repoPath, "--env", envID, "topology"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("topology code=%d stderr=%q", code, stderr.String())
 	}
-	if stdout.String() != "Topology edges: 1\nOrphan zones: 1\n" {
+	if stdout.String() != topologyMMD {
 		t.Fatalf("topology output mismatch: %q", stdout.String())
 	}
 }
