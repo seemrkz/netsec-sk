@@ -285,7 +285,7 @@ For each externally observable interface (API, UI flow):
 - Enforcement:
   - MUST: provide `/api/health` returning `{ version, started_at, url }`.
   - MUST: provide deterministic contracts for environment lifecycle, environment state, commit listing, ingest status/decision, and flow trace endpoints in §10.
-  - MUST: return structured error codes and messages (see §10.4).
+  - MUST: return structured error codes and messages (see §10.5).
 - Updated by: AMD-00003
 
 #### D-00011: State Schema + Canonicalization
