@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -35,6 +37,8 @@ type app struct {
 	startedAt string
 	baseURL   string
 	storage   string
+	mu        sync.RWMutex
+	ingests   map[string]*ingestStatus
 }
 
 type envMeta struct {
@@ -109,6 +113,7 @@ func main() {
 		startedAt: startedAt,
 		baseURL:   baseURL,
 		storage:   storageRoot,
+		ingests:   map[string]*ingestStatus{},
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.route)
@@ -127,6 +132,8 @@ func (a *app) route(w http.ResponseWriter, r *http.Request) {
 		a.handleHealth(w, r)
 	case r.URL.Path == "/api/environments":
 		a.handleEnvironments(w, r)
+	case strings.HasPrefix(r.URL.Path, "/api/ingests/"):
+		a.handleIngestByID(w, r)
 	case strings.HasPrefix(r.URL.Path, "/api/environments/"):
 		a.handleEnvironmentByID(w, r)
 	default:
@@ -172,6 +179,15 @@ func (a *app) handleEnvironmentByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(parts) == 2 && parts[1] == "ingests" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		a.handleCreateIngest(w, r, parts[0])
+		return
+	}
+
 	if len(parts) != 2 || r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -185,6 +201,25 @@ func (a *app) handleEnvironmentByID(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func (a *app) handleIngestByID(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/ingests/")
+	parts := strings.Split(path, "/")
+	if len(parts) == 0 || parts[0] == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	if len(parts) == 1 && r.Method == http.MethodGet {
+		a.handleGetIngestStatus(w, parts[0])
+		return
+	}
+	if len(parts) == 2 && parts[1] == "rma-decision" && r.Method == http.MethodPost {
+		a.handleRmaDecision(w, r, parts[0])
+		return
+	}
+	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
 func (a *app) handleCreateEnvironment(w http.ResponseWriter, r *http.Request) {
@@ -468,4 +503,19 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func openAppend(path string) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return f, nil
 }

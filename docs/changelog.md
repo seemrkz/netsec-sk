@@ -37,3 +37,14 @@
   - `curl -sS "$BASE_URL/api/environments/$NEW_ID/state" | jq -e '.code == "ERR_ENV_STATE_NOT_FOUND"'` -> `true`
 - Commit proof:
   - `4f33ebe` `TASK-00003: implement environment state and commits read APIs`
+
+## TASK-00004
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented ingest orchestration endpoints with stage/progress/status tracking and completed final-record responses.
+- Verification:
+  - `INGEST_ID="$(curl -sS -X POST -F "file=@$FIREWALL_TSF" "$BASE_URL/api/environments/$ENV_ID/ingests" | jq -r '.ingest_id')" && test -n "$INGEST_ID"` -> exit `0`
+  - `curl -sS "$BASE_URL/api/ingests/$INGEST_ID" | jq -e '.ingest_id and .env_id and .status and .stage and .progress.pct >= 0 and .progress.pct <= 100'` -> `true`
+  - `curl -sS "$BASE_URL/api/ingests/$INGEST_ID" | jq -e 'if .status == "completed" then (.final_record.ingest_id == .ingest_id) else true end'` -> `true`
+- Commit proof:
+  - Pending

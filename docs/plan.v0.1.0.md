@@ -77,7 +77,7 @@ Lane view:
 LANE1          | LANE2        | LANE3
 runtime-api    | ingest-core  | analysis-flow
 ----------------------------------------------
-~~TASK-00001~~ | TASK-00004   | TASK-00010
+~~TASK-00001~~ | ~~TASK-00004~~ | TASK-00010
 ~~TASK-00002~~ | TASK-00005   | TASK-00011
 ~~TASK-00003~~ | TASK-00006   | TASK-00012
                | TASK-00007   |
@@ -277,11 +277,11 @@ A task is invalid unless it includes:
 ### TASK-00004: Ingest Orchestration + Status Endpoint
 - Objective: Implement ingest lifecycle orchestration with deterministic stage/status reporting.
 - Spec refs: SPEC §5.1 F2.1/F2.3/F2.4, SPEC §5.2 Flow B, SPEC §6.1, SPEC §9.2, SPEC §10.3.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00001, TASK-00002
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00004: implement ingest orchestration and status API>
+- Commit proof: Pending (to be filled after commit) | TASK-00004: implement ingest orchestration and status API
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
