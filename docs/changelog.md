@@ -103,4 +103,4 @@
   - `test ! -f "$HOME/.netsec-sk/runtime/ingests/$A2.json"` -> exit `0`
   - `curl -sS "$BASE_URL/api/ingests/$CANCEL_INGEST" | jq -e '.final_record.status=="error" and .final_record.error.code=="ERR_USER_ABORTED" and .final_record.rma.decision=="canceled"'` -> `true`
 - Commit proof:
-  - Pending
+  - `9471138` `TASK-00009: implement RMA awaiting user workflow`

@@ -552,7 +552,7 @@ A task is invalid unless it includes:
 - Blocked by: none
 - Depends on: TASK-00004, TASK-00005, TASK-00006, TASK-00007
 - Commit requirement: Yes
-- Commit proof: Pending (to be filled after commit) | TASK-00009: implement RMA awaiting user workflow
+- Commit proof: 9471138 | TASK-00009: implement RMA awaiting user workflow
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
