@@ -188,6 +188,14 @@ func (a *app) handleEnvironmentByID(w http.ResponseWriter, r *http.Request) {
 		a.handleCreateIngest(w, r, parts[0])
 		return
 	}
+	if len(parts) == 2 && parts[1] == "flow-trace" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		a.handleFlowTrace(w, r, parts[0])
+		return
+	}
 
 	if len(parts) != 2 || r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
