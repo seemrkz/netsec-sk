@@ -322,6 +322,11 @@ func (a *app) processIngest(envDir string, st *ingestStatus, contents []byte, de
 func finalizeRecord(st *ingestStatus, stageDurations map[string]int64, status string, ingestErr map[string]any) map[string]any {
 	now := time.Now().UTC()
 	stageDurations[st.Stage] += now.Sub(st.StageStart).Milliseconds()
+	for _, stage := range []string{"receive", "scan", "identify", "extract", "derive", "diff", "persist", "awaiting_user"} {
+		if _, ok := stageDurations[stage]; !ok {
+			stageDurations[stage] = 0
+		}
+	}
 	durationTotal := now.Sub(st.StartedAt).Milliseconds()
 	durationCompute := durationTotal
 
