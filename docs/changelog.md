@@ -137,4 +137,4 @@
   - `tail -n 5 "$HOME/.netsec-sk/environments/$ENV_ID/commits.ndjson"` -> includes commit hashes and changed path excerpts.
   - `rg -n 'TASK-0000[1-9]|TASK-0001[0-2]' docs/changelog.md` -> all task IDs 00001..00012 present.
 - Commit proof:
-  - Pending
+  - `d35675b` `TASK-00012: execute verification matrix and record proof`
