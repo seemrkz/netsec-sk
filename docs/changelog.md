@@ -8,5 +8,4 @@
   - `jq -e '.url and .port and .pid and .started_at and .version' "$HOME/.netsec-sk/runtime/server.json"` -> `true`
   - `BASE_URL="$(jq -r '.url' "$HOME/.netsec-sk/runtime/server.json")" && curl -sS "$BASE_URL/api/health" | jq -e '.version and .started_at and .url'` -> `true`
 - Commit proof:
-  - Pending
-
+  - `181a68b` `TASK-00001: implement runtime bootstrap and health endpoint`

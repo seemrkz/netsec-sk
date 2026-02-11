@@ -117,7 +117,7 @@ A task is invalid unless it includes:
 - Blocked by: none
 - Depends on: none
 - Commit requirement: Yes
-- Commit proof: Pending (to be filled after commit) | TASK-00001: implement runtime bootstrap and health endpoint
+- Commit proof: 181a68b | TASK-00001: implement runtime bootstrap and health endpoint
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
