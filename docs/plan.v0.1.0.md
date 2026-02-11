@@ -336,7 +336,7 @@ A task is invalid unless it includes:
 - Blocked by: none
 - Depends on: TASK-00004
 - Commit requirement: Yes
-- Commit proof: Pending (to be filled after commit) | TASK-00005: implement TSF extraction and device classification
+- Commit proof: e701474 | TASK-00005: implement TSF extraction and device classification
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -390,7 +390,7 @@ A task is invalid unless it includes:
 - Blocked by: none
 - Depends on: TASK-00005
 - Commit requirement: Yes
-- Commit proof: Pending (to be filled after commit) | TASK-00006: implement canonical state persistence and intro generation
+- Commit proof: 2c22829 | TASK-00006: implement canonical state persistence and intro generation
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -444,7 +444,7 @@ A task is invalid unless it includes:
 - Blocked by: none
 - Depends on: TASK-00004, TASK-00006
 - Commit requirement: Yes
-- Commit proof: Pending (to be filled after commit) | TASK-00007: implement ingest and commit log semantics
+- Commit proof: d1532db | TASK-00007: implement ingest and commit log semantics
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 

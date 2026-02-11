@@ -58,7 +58,7 @@
   - `jq -e '.devices.logical[] | .current.identity | has("hostname") and has("model") and has("serial") and has("panos_version") and has("mgmt_ip")' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `true`
   - `jq -e '.devices.logical[] | select(.device_type=="panorama") | .current.panorama.managed_device_serials' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `["PAFW100","PAFW200"]`
 - Commit proof:
-  - Pending
+  - `e701474` `TASK-00005: implement TSF extraction and device classification`
 
 ## TASK-00006
 - Date: 2026-02-11
@@ -69,7 +69,7 @@
   - `rg -n '^# |Quick facts|Where to look in state.json|AI Agent notes|/devices/logical|/topology/inferred_adjacencies|/devices/logical\[i\]/current/network' "$HOME/.netsec-sk/environments/$ENV_ID/intro.md"` -> matched expected sections/pointers
   - `tail -c1 "$HOME/.netsec-sk/environments/$ENV_ID/state.json" | od -An -t x1 | rg -q '0a'` -> exit `0`
 - Commit proof:
-  - Pending
+  - `2c22829` `TASK-00006: implement canonical state persistence and intro generation`
 
 ## TASK-00007
 - Date: 2026-02-11
@@ -79,7 +79,7 @@
   - `tail -n 5 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson" | jq -s -e 'any(.[]; .status=="duplicate") and any(.[]; .status=="error") and all(.[]; .duration_ms_total >= 0 and .duration_ms_compute >= 0)'` -> `true`
   - `COMMIT_LINES_BEFORE="$(wc -l < "$HOME/.netsec-sk/environments/$ENV_ID/commits.ndjson")" ... COMMIT_LINES_AFTER="$(wc -l < "$HOME/.netsec-sk/environments/$ENV_ID/commits.ndjson")" && test "$COMMIT_LINES_BEFORE" -eq "$COMMIT_LINES_AFTER"` -> exit `0` (`3 == 3`)
 - Commit proof:
-  - Pending
+  - `d1532db` `TASK-00007: implement ingest and commit log semantics`
 
 ## TASK-00008
 - Date: 2026-02-11
