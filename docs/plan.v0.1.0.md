@@ -78,11 +78,11 @@ LANE1          | LANE2        | LANE3
 runtime-api    | ingest-core  | analysis-flow
 ----------------------------------------------
 ~~TASK-00001~~ | ~~TASK-00004~~ | TASK-00010
-~~TASK-00002~~ | TASK-00005   | TASK-00011
-~~TASK-00003~~ | TASK-00006   | TASK-00012
-               | TASK-00007   |
-               | TASK-00008   |
-               | TASK-00009   |
+~~TASK-00002~~ | ~~TASK-00005~~ | TASK-00011
+~~TASK-00003~~ | ~~TASK-00006~~ | TASK-00012
+               | ~~TASK-00007~~ |
+               | ~~TASK-00008~~ |
+               | ~~TASK-00009~~ |
 
 ---
 
@@ -332,11 +332,11 @@ A task is invalid unless it includes:
 ### TASK-00005: TSF Extraction + Classification (Normative Appendix)
 - Objective: Implement deterministic TSF field extraction and device classification per Appendix A.
 - Spec refs: SPEC §4.3 D-00006, SPEC §5.3 AC-F2-7, SPEC §9.7.1, SPEC §9.7.2, SPEC Appendix A.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00004
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00005: implement TSF extraction and device classification>
+- Commit proof: Pending (to be filled after commit) | TASK-00005: implement TSF extraction and device classification
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -386,11 +386,11 @@ A task is invalid unless it includes:
 ### TASK-00006: Deterministic State Persistence + Intro Generation
 - Objective: Build deterministic state representation and atomic persistence behavior.
 - Spec refs: SPEC §4.3 D-00002, SPEC §4.3 D-00011, SPEC §5.3 AC-F3-1..3, SPEC §9.1, SPEC §9.7, SPEC §9.7.3, SPEC §9.8.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00005
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00006: implement canonical state persistence and intro generation>
+- Commit proof: Pending (to be filled after commit) | TASK-00006: implement canonical state persistence and intro generation
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -440,11 +440,11 @@ A task is invalid unless it includes:
 ### TASK-00007: Ingest/Commit Logs + Dedupe + No-Change Semantics
 - Objective: Enforce ingest log and commit log rules including duplicate/no-change behavior.
 - Spec refs: SPEC §4.3 D-00004, SPEC §4.3 D-00005, SPEC §5.3 AC-F2-1..4, SPEC §5.3 AC-F4-1..2, SPEC §9.2, SPEC §9.3, SPEC §9.7.3.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00004, TASK-00006
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00007: implement ingest and commit log semantics>
+- Commit proof: Pending (to be filled after commit) | TASK-00007: implement ingest and commit log semantics
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -496,11 +496,11 @@ A task is invalid unless it includes:
 ### TASK-00008: Batch Ingest Sequencing + Continue-on-Error
 - Objective: Implement deterministic batch ordering and failure-continuation behavior.
 - Spec refs: SPEC §4.3 D-00012, SPEC §5.2 Flow C, SPEC §5.3 AC-F2-5.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00004, TASK-00007
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00008: implement batch ingest order and continue semantics>
+- Commit proof: Pending (to be filled after commit) | TASK-00008: implement batch ingest order and continue semantics
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -548,11 +548,11 @@ A task is invalid unless it includes:
 ### TASK-00009: RMA Awaiting-User Decision Flow
 - Objective: Implement RMA confirmation pause/decision semantics with deterministic state mutation rules.
 - Spec refs: SPEC §4.3 D-00009, SPEC §5.2 Flow C2, SPEC §5.3 AC-F2-6, SPEC §6.1, SPEC §9.2, SPEC §9.4, SPEC §10.3, SPEC §10.5.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00004, TASK-00005, TASK-00006, TASK-00007
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00009: implement RMA awaiting user workflow>
+- Commit proof: Pending (to be filled after commit) | TASK-00009: implement RMA awaiting user workflow
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 

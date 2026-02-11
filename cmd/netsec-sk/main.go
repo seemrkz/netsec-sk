@@ -115,6 +115,7 @@ func main() {
 		storage:   storageRoot,
 		ingests:   map[string]*ingestStatus{},
 	}
+	a.cleanupRuntimeIngestsTTL()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.route)
 

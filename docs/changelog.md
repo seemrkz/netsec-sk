@@ -48,3 +48,59 @@
   - `curl -sS "$BASE_URL/api/ingests/$INGEST_ID" | jq -e 'if .status == "completed" then (.final_record.ingest_id == .ingest_id) else true end'` -> `true`
 - Commit proof:
   - `0d1267f` `TASK-00004: implement ingest orchestration and status API`
+
+## TASK-00005
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented TSF extraction + classification with required identity fields, explicit `not_found` fallback semantics, and panorama-only payload mapping.
+- Verification:
+  - `tail -n 1 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson" | jq -e '.device.device_type and .device.serial and .device.hostname'` -> `true`
+  - `jq -e '.devices.logical[] | .current.identity | has("hostname") and has("model") and has("serial") and has("panos_version") and has("mgmt_ip")' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `true`
+  - `jq -e '.devices.logical[] | select(.device_type=="panorama") | .current.panorama.managed_device_serials' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `["PAFW100","PAFW200"]`
+- Commit proof:
+  - Pending
+
+## TASK-00006
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented deterministic state persistence with canonical state shape, atomic writes (`tmp` + sync + rename), `state.json.bak`, and `intro.md` regeneration.
+- Verification:
+  - `jq -e '.schema_version == "1.0.0" and .generated_at and .env.env_id and .devices.logical and .topology.inferred_adjacencies' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `true`
+  - `rg -n '^# |Quick facts|Where to look in state.json|AI Agent notes|/devices/logical|/topology/inferred_adjacencies|/devices/logical\[i\]/current/network' "$HOME/.netsec-sk/environments/$ENV_ID/intro.md"` -> matched expected sections/pointers
+  - `tail -c1 "$HOME/.netsec-sk/environments/$ENV_ID/state.json" | od -An -t x1 | rg -q '0a'` -> exit `0`
+- Commit proof:
+  - Pending
+
+## TASK-00007
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented ingest/commit log semantics including fingerprint dedupe, no-change handling, and commit-on-change-only behavior.
+- Verification:
+  - `tail -n 5 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson" | jq -s -e 'any(.[]; .status=="duplicate") and any(.[]; .status=="error") and all(.[]; .duration_ms_total >= 0 and .duration_ms_compute >= 0)'` -> `true`
+  - `COMMIT_LINES_BEFORE="$(wc -l < "$HOME/.netsec-sk/environments/$ENV_ID/commits.ndjson")" ... COMMIT_LINES_AFTER="$(wc -l < "$HOME/.netsec-sk/environments/$ENV_ID/commits.ndjson")" && test "$COMMIT_LINES_BEFORE" -eq "$COMMIT_LINES_AFTER"` -> exit `0` (`3 == 3`)
+- Commit proof:
+  - Pending
+
+## TASK-00008
+- Date: 2026-02-11
+- Type: Added
+- Summary: Verified deterministic batch sequencing and continue-on-error semantics via lexicographically ordered per-file ingest submissions.
+- Verification:
+  - `for f in $(find "$BATCH_DIR" -name '*.tgz' -maxdepth 1 | LC_ALL=C sort); do curl -sS -X POST -F "file=@$f" "$BASE_URL/api/environments/$ENV_ID/ingests" >/dev/null; done`
+  - `tail -n 3 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson" | jq -s -e 'length == 3 and any(.[]; .status=="error")'` -> `true`
+  - `tail -n 3 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson" | jq -r '.source.filenames[0]'` -> `a-ok.tgz`, `b-bad.tgz`, `c-ok.tgz`
+- Commit proof:
+  - Pending
+
+## TASK-00009
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented RMA awaiting-user flow with candidates, decision handling (`link_replacement|treat_as_new_device|canceled`), final ingest RMA fields, and runtime payload cleanup/TTL.
+- Verification:
+  - `curl -sS "$BASE_URL/api/ingests/$A2" | jq -e '.status=="awaiting_user" and .rma_prompt.required==true and (.rma_prompt.candidates|length)>0'` -> `true`
+  - `curl -sS -X POST "$BASE_URL/api/ingests/$A2/rma-decision" -H 'Content-Type: application/json' -d '{"decision":"link_replacement","target_logical_device_id":"'$TARGET'"}' | jq -e '.'` -> valid JSON response
+  - `curl -sS "$BASE_URL/api/ingests/$A2" | jq -e '.status=="completed" and .final_record.rma.prompted==true and .final_record.rma.decision=="link_replacement"'` -> `true`
+  - `test ! -f "$HOME/.netsec-sk/runtime/ingests/$A2.json"` -> exit `0`
+  - `curl -sS "$BASE_URL/api/ingests/$CANCEL_INGEST" | jq -e '.final_record.status=="error" and .final_record.error.code=="ERR_USER_ABORTED" and .final_record.rma.decision=="canceled"'` -> `true`
+- Commit proof:
+  - Pending
