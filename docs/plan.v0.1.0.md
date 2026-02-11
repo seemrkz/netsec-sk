@@ -79,7 +79,7 @@ runtime-api    | ingest-core  | analysis-flow
 ----------------------------------------------
 ~~TASK-00001~~ | TASK-00004   | TASK-00010
 ~~TASK-00002~~ | TASK-00005   | TASK-00011
-TASK-00003     | TASK-00006   | TASK-00012
+~~TASK-00003~~ | TASK-00006   | TASK-00012
                | TASK-00007   |
                | TASK-00008   |
                | TASK-00009   |
@@ -223,11 +223,11 @@ A task is invalid unless it includes:
 ### TASK-00003: Environment Read APIs (State + Commits)
 - Objective: Expose deterministic environment state and commit history read endpoints.
 - Spec refs: SPEC §5.2 Flow D/E, SPEC §5.3 AC-F4-3..4, SPEC §9.3, SPEC §9.7, SPEC §10.2, SPEC §10.5.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00002
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00003: implement environment state and commits read APIs>
+- Commit proof: Pending (to be filled after commit) | TASK-00003: implement environment state and commits read APIs
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 

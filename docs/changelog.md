@@ -23,3 +23,17 @@
   - `curl -sS -X POST "$BASE_URL/api/environments" -H 'Content-Type: application/json' -d '{"name":""}' | jq -e '.code == "ERR_ENV_NAME_REQUIRED"'` -> `true`
 - Commit proof:
   - `48475b1` `TASK-00002: implement environment create list delete APIs`
+
+## TASK-00003
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented environment state and commits read endpoints with disk-backed responses and deterministic commit ordering.
+- Verification:
+  - `curl -sS "$BASE_URL/api/environments/$ENV_ID/state" | jq -e --arg id "$ENV_ID" '.state.schema_version == "1.0.0" and .state.env.env_id == $id'` -> `true`
+  - `API_COUNT="$(curl -sS "$BASE_URL/api/environments/$ENV_ID/commits" | jq '.commits | length')" && FILE_COUNT="$(wc -l < "$HOME/.netsec-sk/environments/$ENV_ID/commits.ndjson")" && test "$API_COUNT" -eq "$FILE_COUNT"` -> exit `0` (`API_COUNT=2`, `FILE_COUNT=2`)
+  - `curl -sS "$BASE_URL/api/environments/$ENV_ID/commits" | jq -e '.commits as $c | ($c | length) < 2 or ([range(0; ($c|length)-1)] | all($c[.].timestamp >= $c[.+1].timestamp))'` -> `true`
+  - `curl -sS "$BASE_URL/api/environments/$MISSING_ID/state" | jq -e '.code == "ERR_ENV_NOT_FOUND"'` -> `true`
+  - `curl -sS "$BASE_URL/api/environments/$DELETED_ID/state" | jq -e '.code == "ERR_ENV_ALREADY_DELETED"'` -> `true`
+  - `curl -sS "$BASE_URL/api/environments/$NEW_ID/state" | jq -e '.code == "ERR_ENV_STATE_NOT_FOUND"'` -> `true`
+- Commit proof:
+  - Pending

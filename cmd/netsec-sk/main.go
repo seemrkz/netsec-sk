@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -59,6 +60,15 @@ type deleteEnvResponse struct {
 	EnvID         string `json:"env_id"`
 	SoftDeleted   bool   `json:"soft_deleted"`
 	SoftDeletedAt string `json:"soft_deleted_at"`
+}
+
+type envStateResponse struct {
+	State any `json:"state"`
+}
+
+type commitsResponse struct {
+	EnvID   string           `json:"env_id"`
+	Commits []map[string]any `json:"commits"`
 }
 
 type errorResponse struct {
@@ -149,15 +159,32 @@ func (a *app) handleEnvironments(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) handleEnvironmentByID(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/environments/"), "/")
-	if len(parts) != 1 || parts[0] == "" {
+	if len(parts) == 0 || parts[0] == "" {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodDelete {
+	if len(parts) == 1 {
+		if r.Method != http.MethodDelete {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		a.handleDeleteEnvironment(w, parts[0])
+		return
+	}
+
+	if len(parts) != 2 || r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	a.handleDeleteEnvironment(w, parts[0])
+
+	switch parts[1] {
+	case "state":
+		a.handleGetEnvironmentState(w, parts[0])
+	case "commits":
+		a.handleGetEnvironmentCommits(w, parts[0])
+	default:
+		http.NotFound(w, r)
+	}
 }
 
 func (a *app) handleCreateEnvironment(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +312,110 @@ func readMeta(path string) (envMeta, bool) {
 		return meta, false
 	}
 	return meta, true
+}
+
+func (a *app) handleGetEnvironmentState(w http.ResponseWriter, envID string) {
+	envDir, status := a.resolveEnvironmentPath(envID)
+	if status != http.StatusOK {
+		if status == http.StatusGone {
+			writeError(w, http.StatusNotFound, "ERR_ENV_ALREADY_DELETED", "environment already deleted")
+			return
+		}
+		writeError(w, http.StatusNotFound, "ERR_ENV_NOT_FOUND", "environment not found")
+		return
+	}
+
+	statePath := filepath.Join(envDir, "state.json")
+	payload, err := os.ReadFile(statePath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "ERR_ENV_STATE_NOT_FOUND", "environment state not found")
+		return
+	}
+
+	var state any
+	if err := json.Unmarshal(payload, &state); err != nil {
+		writeError(w, http.StatusInternalServerError, "ERR_PERSIST_FAILED", "state file is invalid")
+		return
+	}
+	writeJSON(w, http.StatusOK, envStateResponse{State: state})
+}
+
+func (a *app) handleGetEnvironmentCommits(w http.ResponseWriter, envID string) {
+	envDir, status := a.resolveEnvironmentPath(envID)
+	if status != http.StatusOK {
+		if status == http.StatusGone {
+			writeError(w, http.StatusNotFound, "ERR_ENV_ALREADY_DELETED", "environment already deleted")
+			return
+		}
+		writeError(w, http.StatusNotFound, "ERR_ENV_NOT_FOUND", "environment not found")
+		return
+	}
+
+	commitsPath := filepath.Join(envDir, "commits.ndjson")
+	commits, err := readCommits(commitsPath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "ERR_PERSIST_FAILED", "failed to read commits")
+		return
+	}
+
+	sort.Slice(commits, func(i, j int) bool {
+		it := stringValue(commits[i]["timestamp"])
+		jt := stringValue(commits[j]["timestamp"])
+		if it != jt {
+			return it > jt
+		}
+		return stringValue(commits[i]["commit_id"]) < stringValue(commits[j]["commit_id"])
+	})
+
+	writeJSON(w, http.StatusOK, commitsResponse{
+		EnvID:   envID,
+		Commits: commits,
+	})
+}
+
+func (a *app) resolveEnvironmentPath(envID string) (string, int) {
+	envDir := filepath.Join(a.storage, "environments", envID)
+	if _, err := os.Stat(envDir); err == nil {
+		return envDir, http.StatusOK
+	}
+	if _, err := os.Stat(filepath.Join(a.storage, "trash", envID)); err == nil {
+		return "", http.StatusGone
+	}
+	return "", http.StatusNotFound
+}
+
+func readCommits(path string) ([]map[string]any, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []map[string]any{}, nil
+		}
+		return nil, err
+	}
+	defer file.Close()
+
+	out := make([]map[string]any, 0)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var commit map[string]any
+		if err := json.Unmarshal([]byte(line), &commit); err != nil {
+			return nil, err
+		}
+		out = append(out, commit)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func stringValue(v any) string {
+	s, _ := v.(string)
+	return s
 }
 
 func writeError(w http.ResponseWriter, status int, code, msg string) {
