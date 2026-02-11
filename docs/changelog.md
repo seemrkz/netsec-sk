@@ -47,4 +47,4 @@
   - `curl -sS "$BASE_URL/api/ingests/$INGEST_ID" | jq -e '.ingest_id and .env_id and .status and .stage and .progress.pct >= 0 and .progress.pct <= 100'` -> `true`
   - `curl -sS "$BASE_URL/api/ingests/$INGEST_ID" | jq -e 'if .status == "completed" then (.final_record.ingest_id == .ingest_id) else true end'` -> `true`
 - Commit proof:
-  - Pending
+  - `0d1267f` `TASK-00004: implement ingest orchestration and status API`
