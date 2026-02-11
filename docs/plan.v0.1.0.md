@@ -171,7 +171,7 @@ A task is invalid unless it includes:
 - Blocked by: none
 - Depends on: TASK-00001
 - Commit requirement: Yes
-- Commit proof: Pending (to be filled after commit) | TASK-00002: implement environment create list delete APIs
+- Commit proof: 48475b1 | TASK-00002: implement environment create list delete APIs
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 

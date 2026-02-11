@@ -22,4 +22,4 @@
   - `test -f "$HOME/.netsec-sk/trash/$ENV_ID/meta.json"` -> exit `0`
   - `curl -sS -X POST "$BASE_URL/api/environments" -H 'Content-Type: application/json' -d '{"name":""}' | jq -e '.code == "ERR_ENV_NAME_REQUIRED"'` -> `true`
 - Commit proof:
-  - Pending
+  - `48475b1` `TASK-00002: implement environment create list delete APIs`
