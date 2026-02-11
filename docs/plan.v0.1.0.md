@@ -77,9 +77,9 @@ Lane view:
 LANE1          | LANE2        | LANE3
 runtime-api    | ingest-core  | analysis-flow
 ----------------------------------------------
-~~TASK-00001~~ | ~~TASK-00004~~ | TASK-00010
-~~TASK-00002~~ | ~~TASK-00005~~ | TASK-00011
-~~TASK-00003~~ | ~~TASK-00006~~ | TASK-00012
+~~TASK-00001~~ | ~~TASK-00004~~ | ~~TASK-00010~~
+~~TASK-00002~~ | ~~TASK-00005~~ | ~~TASK-00011~~
+~~TASK-00003~~ | ~~TASK-00006~~ | ~~TASK-00012~~
                | ~~TASK-00007~~ |
                | ~~TASK-00008~~ |
                | ~~TASK-00009~~ |
@@ -604,11 +604,11 @@ A task is invalid unless it includes:
 ### TASK-00010: Topology Inference (CIDR Overlap + Evidence)
 - Objective: Implement deterministic firewall adjacency inference from routed CIDR overlap.
 - Spec refs: SPEC §4.3 D-00007, SPEC §5.1 F5, SPEC §5.3 AC-F5-1..4, SPEC §6.2, SPEC §6.3, SPEC §9.7, SPEC §9.7.3.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00005, TASK-00006
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00010: implement topology inference with overlap evidence>
+- Commit proof: 074c12c | TASK-00010: implement topology inference with overlap evidence
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -658,11 +658,11 @@ A task is invalid unless it includes:
 ### TASK-00011: Flow Trace API + Mermaid Output
 - Objective: Implement deterministic flow-trace endpoint behavior and Mermaid output contract.
 - Spec refs: SPEC §4.3 D-00008, SPEC §5.1 F6, SPEC §5.3 AC-F6-1..4, SPEC §6.4, SPEC §10.4, SPEC §10.5.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00003, TASK-00010
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00011: implement flow trace endpoint and mermaid output>
+- Commit proof: cca7735 | TASK-00011: implement flow trace endpoint and mermaid output
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
@@ -711,11 +711,11 @@ A task is invalid unless it includes:
 ### TASK-00012: Release Verification + Proof Recording
 - Objective: Execute the mandatory verification matrix and record release proof artifacts in changelog.
 - Spec refs: SPEC §7.1, SPEC §7.2, SPEC §2.3, SPEC §10.5.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: TASK-00001, TASK-00002, TASK-00003, TASK-00004, TASK-00005, TASK-00006, TASK-00007, TASK-00008, TASK-00009, TASK-00010, TASK-00011
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00012: execute verification matrix and record proof>
+- Commit proof: Pending (to be filled after commit) | TASK-00012: execute verification matrix and record proof
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 

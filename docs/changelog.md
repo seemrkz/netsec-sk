@@ -104,3 +104,37 @@
   - `curl -sS "$BASE_URL/api/ingests/$CANCEL_INGEST" | jq -e '.final_record.status=="error" and .final_record.error.code=="ERR_USER_ABORTED" and .final_record.rma.decision=="canceled"'` -> `true`
 - Commit proof:
   - `9471138` `TASK-00009: implement RMA awaiting user workflow`
+
+## TASK-00010
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented deterministic topology inference from non-default CIDR overlap with per-edge evidence from both firewalls.
+- Verification:
+  - `jq -e '.topology.inferred_adjacencies | type=="array"' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `true`
+  - `jq -e '.topology.inferred_adjacencies[] | (.evidence | length) > 0' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `true`
+  - `jq -e '.topology.inferred_adjacencies[] | .evidence[] | (.cidr_i != "0.0.0.0/0" and .cidr_j != "0.0.0.0/0")' "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `true`
+- Commit proof:
+  - `074c12c` `TASK-00010: implement topology inference with overlap evidence`
+
+## TASK-00011
+- Date: 2026-02-11
+- Type: Added
+- Summary: Implemented flow-trace API with IP validation, deterministic hop list, and Mermaid output.
+- Verification:
+  - `curl -sS -X POST "$BASE_URL/api/environments/$ENV_ID/flow-trace" -H 'Content-Type: application/json' -d '{"src_ip":"10.0.0.10","dst_ip":"10.0.1.20"}' | jq -e '(.hops|length>0) and (.mermaid|type=="string")'` -> `true`
+  - `curl -sS -X POST "$BASE_URL/api/environments/$ENV_ID/flow-trace" -H 'Content-Type: application/json' -d '{"src_ip":"not-an-ip","dst_ip":"10.0.1.20"}' | jq -e '.code=="ERR_INVALID_IP"'` -> `true`
+  - `curl -sS -X POST "$BASE_URL/api/environments/$ENV_ID/flow-trace" -H 'Content-Type: application/json' -d '{"src_ip":"203.0.113.10","dst_ip":"10.0.1.20"}' | jq -e '.code=="ERR_FLOW_SRC_NOT_FOUND"'` -> `true`
+- Commit proof:
+  - `cca7735` `TASK-00011: implement flow trace endpoint and mermaid output`
+
+## TASK-00012
+- Date: 2026-02-11
+- Type: Added
+- Summary: Executed release verification matrix and recorded proof artifacts for success, duplicate, no_change, batch-continue, RMA, and flow-trace scenarios.
+- Verification:
+  - `shasum -a 256 "$HOME/.netsec-sk/environments/$ENV_ID/state.json"` -> `adeb682b3a299d61c0683efcd6a38f7d6ef2c541d97a55c80d7f67952e9a06c5`
+  - `tail -n 5 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson"` -> includes statuses `success|duplicate|no_change|error` and timing fields.
+  - `tail -n 5 "$HOME/.netsec-sk/environments/$ENV_ID/commits.ndjson"` -> includes commit hashes and changed path excerpts.
+  - `rg -n 'TASK-0000[1-9]|TASK-0001[0-2]' docs/changelog.md` -> all task IDs 00001..00012 present.
+- Commit proof:
+  - Pending
