@@ -36,4 +36,4 @@
   - `curl -sS "$BASE_URL/api/environments/$DELETED_ID/state" | jq -e '.code == "ERR_ENV_ALREADY_DELETED"'` -> `true`
   - `curl -sS "$BASE_URL/api/environments/$NEW_ID/state" | jq -e '.code == "ERR_ENV_STATE_NOT_FOUND"'` -> `true`
 - Commit proof:
-  - Pending
+  - `4f33ebe` `TASK-00003: implement environment state and commits read APIs`
