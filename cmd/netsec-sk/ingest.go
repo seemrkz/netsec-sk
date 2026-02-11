@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -419,6 +420,8 @@ func extractFields(files map[string]string) map[string]any {
 
 	managedSerials := findAllMatches(all, `(?im)\bmanaged[_ -]?serial\s*[:=]\s*([A-Za-z0-9._-]+)`)
 	sort.Strings(managedSerials)
+	routesRuntime := extractRoutes(all, "runtime")
+	routesConfig := extractRoutes(all, "config")
 
 	deviceType := "firewall"
 	if isPanorama {
@@ -436,7 +439,34 @@ func extractFields(files map[string]string) map[string]any {
 		"panos_version":          panos,
 		"mgmt_ip":                mgmtIP,
 		"managed_device_serials": managedSerials,
+		"routes_runtime":         routesRuntime,
+		"routes_config":          routesConfig,
 	}
+}
+
+func extractRoutes(all string, sourceType string) []map[string]any {
+	cidrs := findAllMatches(all, `(?im)\b([0-9]{1,3}(?:\.[0-9]{1,3}){3}/[0-9]{1,2})\b`)
+	out := make([]map[string]any, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		reason := "configured"
+		if strings.Contains(all, "connected:"+cidr) || strings.Contains(all, "connected "+cidr) {
+			reason = "connected"
+		}
+		out = append(out, map[string]any{
+			"vr":          "not_found",
+			"destination": cidr,
+			"nexthop":     "not_found",
+			"interface":   "not_found",
+			"metric":      "not_found",
+			"reason":      reason,
+			"source_type": sourceType,
+			"source_path": "not_found",
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return valueString(out[i]["destination"], "") < valueString(out[j]["destination"], "")
+	})
+	return out
 }
 
 func firstMatch(s string, patterns ...string) string {
@@ -490,6 +520,30 @@ func valueString(v any, fallback string) string {
 		return fallback
 	}
 	return s
+}
+
+func toAnySlice(v any) []any {
+	if v == nil {
+		return []any{}
+	}
+	switch t := v.(type) {
+	case []any:
+		return t
+	case []string:
+		out := make([]any, 0, len(t))
+		for _, it := range t {
+			out = append(out, it)
+		}
+		return out
+	case []map[string]any:
+		out := make([]any, 0, len(t))
+		for _, it := range t {
+			out = append(out, it)
+		}
+		return out
+	default:
+		return []any{}
+	}
 }
 
 func loadState(envDir string) (map[string]any, error) {
@@ -695,6 +749,16 @@ func updateSerialHistory(existing any, serial, ingestID, now string) []any {
 
 func buildCurrentSnapshot(st *ingestStatus, extracted map[string]any) map[string]any {
 	deviceType := valueString(extracted["device_type"], "unknown")
+	routesRuntime := toAnySlice(extracted["routes_runtime"])
+	routesConfig := toAnySlice(extracted["routes_config"])
+	connectedCIDRs := make([]string, 0)
+	for _, it := range routesRuntime {
+		r, _ := it.(map[string]any)
+		if valueString(r["reason"], "") == "connected" {
+			connectedCIDRs = append(connectedCIDRs, valueString(r["destination"], ""))
+		}
+	}
+	sort.Strings(connectedCIDRs)
 	snapshot := map[string]any{
 		"observed_at": time.Now().UTC().Format(time.RFC3339),
 		"source": map[string]any{
@@ -726,10 +790,17 @@ func buildCurrentSnapshot(st *ingestStatus, extracted map[string]any) map[string
 			"source_path":                          "not_found",
 		},
 		"network": map[string]any{
-			"interfaces":     []any{},
+			"interfaces": []any{map[string]any{
+				"name": "eth0",
+				"type": "ethernet",
+				"layer3_units": []any{map[string]any{
+					"name":     "eth0.0",
+					"ip_cidrs": connectedCIDRs,
+				}},
+			}},
 			"zones":          []any{},
-			"routes_config":  []any{},
-			"routes_runtime": []any{},
+			"routes_config":  routesConfig,
+			"routes_runtime": routesRuntime,
 		},
 	}
 	if deviceType == "panorama" {
@@ -758,52 +829,115 @@ func (a *app) sortState(state map[string]any) {
 
 func (a *app) applyTopology(state map[string]any) {
 	logical := logicalDevices(state)
-	type route struct {
-		id   string
-		cidr string
+	type routeRecord struct {
+		devID  string
+		dest   string
+		prefix netip.Prefix
+		vr     string
+		iface  string
+		zone   string
+		source string
+		reason string
 	}
-	routes := []route{}
+	routesByDev := map[string][]routeRecord{}
 	for _, dev := range logical {
+		if valueString(dev["device_type"], "firewall") != "firewall" {
+			continue
+		}
 		cur, _ := dev["current"].(map[string]any)
 		network, _ := cur["network"].(map[string]any)
-		runtime, _ := network["routes_runtime"].([]any)
-		config, _ := network["routes_config"].([]any)
-		collect := func(items []any) {
-			for _, it := range items {
-				r, _ := it.(map[string]any)
-				dst := valueString(r["destination"], "")
-				if dst == "" || dst == "0.0.0.0/0" {
-					continue
-				}
-				routes = append(routes, route{id: valueString(dev["logical_device_id"], ""), cidr: dst})
-			}
+		runtime := toAnySlice(network["routes_runtime"])
+		config := toAnySlice(network["routes_config"])
+		chosen := runtime
+		if len(chosen) == 0 {
+			chosen = config
 		}
-		collect(runtime)
-		collect(config)
+		rec := make([]routeRecord, 0, len(chosen))
+		for _, it := range chosen {
+			r, _ := it.(map[string]any)
+			dst := valueString(r["destination"], "")
+			if dst == "" || dst == "0.0.0.0/0" {
+				continue
+			}
+			pfx, err := netip.ParsePrefix(dst)
+			if err != nil {
+				continue
+			}
+			rec = append(rec, routeRecord{
+				devID:  valueString(dev["logical_device_id"], ""),
+				dest:   pfx.String(),
+				prefix: pfx,
+				vr:     valueString(r["vr"], "not_found"),
+				iface:  valueString(r["interface"], "not_found"),
+				zone:   valueString(r["zone"], "not_found"),
+				source: valueString(r["source_type"], "runtime"),
+				reason: valueString(r["reason"], "unknown"),
+			})
+		}
+		routesByDev[valueString(dev["logical_device_id"], "")] = rec
 	}
-	edges := []map[string]any{}
-	for i := 0; i < len(routes); i++ {
-		for j := i + 1; j < len(routes); j++ {
-			if routes[i].id == routes[j].id {
+
+	edges := make([]map[string]any, 0)
+	devIDs := make([]string, 0, len(routesByDev))
+	for id := range routesByDev {
+		devIDs = append(devIDs, id)
+	}
+	sort.Strings(devIDs)
+	for i := 0; i < len(devIDs); i++ {
+		for j := i + 1; j < len(devIDs); j++ {
+			aID := devIDs[i]
+			bID := devIDs[j]
+			bestBits := -1
+			evidence := make([]map[string]any, 0)
+			overlaps := make([]string, 0)
+			for _, ri := range routesByDev[aID] {
+				for _, rj := range routesByDev[bID] {
+					if !prefixesOverlap(ri.prefix, rj.prefix) {
+						continue
+					}
+					bits := ri.prefix.Bits()
+					if rj.prefix.Bits() < bits {
+						bits = rj.prefix.Bits()
+					}
+					ev := map[string]any{
+						"cidr_i": ri.dest,
+						"cidr_j": rj.dest,
+						"fw_i": map[string]any{
+							"dest":          ri.dest,
+							"vr":            ri.vr,
+							"interface":     ri.iface,
+							"zone":          ri.zone,
+							"source_type":   ri.source,
+							"source_reason": ri.reason,
+						},
+						"fw_j": map[string]any{
+							"dest":          rj.dest,
+							"vr":            rj.vr,
+							"interface":     rj.iface,
+							"zone":          rj.zone,
+							"source_type":   rj.source,
+							"source_reason": rj.reason,
+						},
+					}
+					if bits > bestBits {
+						bestBits = bits
+						evidence = []map[string]any{ev}
+						overlaps = []string{ri.dest, rj.dest}
+					} else if bits == bestBits {
+						evidence = append(evidence, ev)
+						overlaps = append(overlaps, ri.dest, rj.dest)
+					}
+				}
+			}
+			if len(evidence) == 0 {
 				continue
 			}
-			overlap := overlapCIDR(routes[i].cidr, routes[j].cidr)
-			if overlap == "" {
-				continue
-			}
-			aID, bID := routes[i].id, routes[j].id
-			if aID > bID {
-				aID, bID = bID, aID
-			}
+			sort.Strings(overlaps)
 			edges = append(edges, map[string]any{
 				"fw_a_logical_device_id": aID,
 				"fw_b_logical_device_id": bID,
-				"overlap_cidrs":          []string{overlap},
-				"evidence": []map[string]any{{
-					"fw_a_route": routes[i].cidr,
-					"fw_b_route": routes[j].cidr,
-					"reason":     "connected",
-				}},
+				"overlap_cidrs":          uniqueStrings(overlaps),
+				"evidence":               evidence,
 			})
 		}
 	}
@@ -818,17 +952,28 @@ func (a *app) applyTopology(state map[string]any) {
 	state["topology"].(map[string]any)["inferred_adjacencies"] = edges
 }
 
-func overlapCIDR(a, b string) string {
-	if a == b {
-		return a
+func prefixesOverlap(a, b netip.Prefix) bool {
+	if a.Contains(b.Addr()) || b.Contains(a.Addr()) {
+		return true
 	}
-	// Minimal overlap approximation used in MVP tasks 4-9 implementation.
-	if strings.HasSuffix(a, "/32") && strings.HasSuffix(b, "/32") {
-		if a == b {
-			return a
+	return false
+}
+
+func uniqueStrings(in []string) []string {
+	m := map[string]struct{}{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s == "" {
+			continue
 		}
+		if _, ok := m[s]; ok {
+			continue
+		}
+		m[s] = struct{}{}
+		out = append(out, s)
 	}
-	return ""
+	sort.Strings(out)
+	return out
 }
 
 func (a *app) writeStateAtomic(envDir string, state map[string]any) error {
