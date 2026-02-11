@@ -41,6 +41,7 @@ type ingestStatus struct {
 	Files       map[string]string      `json:"-"`
 	Extracted   map[string]any         `json:"-"`
 	StatePatch  map[string]interface{} `json:"-"`
+	SourceMode  string                 `json:"-"`
 }
 
 type createIngestResponse struct {
@@ -93,6 +94,7 @@ func (a *app) handleCreateIngest(w http.ResponseWriter, r *http.Request, envID s
 		Durations:  map[string]int64{},
 		Filename:   filepath.Base(fh.Filename),
 		ArchiveSHA: hashBytes(contents),
+		SourceMode: ingestSourceMode(r),
 	}
 	a.storeIngest(st)
 	a.processIngest(envDir, st, contents, nil)
@@ -219,7 +221,11 @@ func (a *app) processIngest(envDir string, st *ingestStatus, contents []byte, de
 		extracted, _ = st.PendingData["extracted"].(map[string]any)
 	}
 	if extracted == nil {
-		// This can happen if decision endpoint is called after restart; best effort fallback.
+		if fromRuntime := a.readRuntimeIngestExtracted(st.IngestID); fromRuntime != nil {
+			extracted = fromRuntime
+		}
+	}
+	if extracted == nil {
 		extracted = map[string]any{"device_type": "unknown", "serial": "not_found", "hostname": "not_found", "model": "not_found", "panos_version": "not_found", "mgmt_ip": "not_found", "managed_device_serials": []string{}}
 	}
 
@@ -262,7 +268,6 @@ func (a *app) processIngest(envDir string, st *ingestStatus, contents []byte, de
 	logicalID, newState := applyExtractedState(state, st, extracted, decision)
 	a.sortState(newState)
 	a.applyTopology(newState)
-	a.writeIntro(envDir, newState, "success", time.Now().UTC().Format(time.RFC3339))
 	afterHash, _ := hashCanonical(newState)
 
 	setStage("persist", 95, "persisting state and logs")
@@ -270,6 +275,7 @@ func (a *app) processIngest(envDir string, st *ingestStatus, contents []byte, de
 	if beforeHash == afterHash {
 		statusCode = "no_change"
 	}
+	a.writeIntro(envDir, newState, statusCode, time.Now().UTC().Format(time.RFC3339))
 	final := finalizeRecord(st, stageDurations, statusCode, nil)
 	populateDeviceFromExtracted(final, extracted)
 	if st.PendingData != nil {
@@ -334,6 +340,9 @@ func finalizeRecord(st *ingestStatus, stageDurations map[string]int64, status st
 	}
 	if ingestErr != nil {
 		rec["error"] = ingestErr
+	}
+	if st.SourceMode == "batch" {
+		rec["source"] = map[string]any{"mode": "batch", "filenames": []string{st.Filename}}
 	}
 	return rec
 }
@@ -821,7 +830,10 @@ func (a *app) writeStateAtomic(envDir string, state map[string]any) error {
 	path := filepath.Join(envDir, "state.json")
 	bak := filepath.Join(envDir, "state.json.bak")
 	tmp := path + ".tmp"
+	oldState, hadOld := []byte(nil), false
 	if old, err := os.ReadFile(path); err == nil {
+		hadOld = true
+		oldState = old
 		if err := os.WriteFile(bak, old, 0o644); err != nil {
 			return err
 		}
@@ -847,6 +859,9 @@ func (a *app) writeStateAtomic(envDir string, state map[string]any) error {
 		return err
 	}
 	if err := os.Rename(tmp, path); err != nil {
+		if hadOld {
+			_ = os.WriteFile(path, oldState, 0o644)
+		}
 		return err
 	}
 	return nil
@@ -865,7 +880,8 @@ func (a *app) writeIntro(envDir string, state map[string]any, lastStatus, finish
 		}
 	}
 	text := fmt.Sprintf("# %s\n\nThis is a derived environment snapshot generated at %s for deterministic inspection.\n\nQuick facts\n- logical devices: %d\n- firewalls: %d\n- panoramas: %d\n- last ingest status: %s at %s\n\nWhere to look in state.json\n- devices list: /devices/logical\n- inferred adjacencies: /topology/inferred_adjacencies\n- per-device network inventory: /devices/logical[i]/current/network\n\nAI Agent notes\n- This file is a derived snapshot; consult commits.ndjson for history.\n- Ingest attempts are recorded in ingest.ndjson (including duplicates/errors).\n- TSF bytes are not retained; provenance is tracked by ingest IDs and fingerprints.\n", meta.Name, time.Now().UTC().Format(time.RFC3339), len(logical), firewalls, panoramas, lastStatus, finishedAt)
-	_ = os.WriteFile(filepath.Join(envDir, "intro.md"), []byte(text), 0o644)
+	text = text + "\n"
+	_ = writeFileAtomic(filepath.Join(envDir, "intro.md"), []byte(text))
 }
 
 func hashCanonical(state map[string]any) (string, error) {
@@ -907,6 +923,20 @@ func (a *app) removeRuntimeIngest(ingestID string) error {
 		return err
 	}
 	return nil
+}
+
+func (a *app) readRuntimeIngestExtracted(ingestID string) map[string]any {
+	path := filepath.Join(a.storage, "runtime", "ingests", ingestID+".json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var payload map[string]any
+	if json.Unmarshal(b, &payload) != nil {
+		return nil
+	}
+	ex, _ := payload["extracted_payload"].(map[string]any)
+	return ex
 }
 
 func (a *app) cleanupRuntimeIngestsTTL() {
@@ -969,4 +999,31 @@ func writeNDJSONLine(path string, v any) error {
 		return err
 	}
 	return f.Sync()
+}
+
+func ingestSourceMode(r *http.Request) string {
+	if strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("mode")), "batch") {
+		return "batch"
+	}
+	return "file"
+}
+
+func writeFileAtomic(path string, b []byte) error {
+	tmp := path + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
