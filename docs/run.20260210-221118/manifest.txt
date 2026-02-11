@@ -1,0 +1,33 @@
+RUN: run.20260210-221118
+DATE (UTC): 2026-02-10T22:11:18Z
+
+ORDERED ARTIFACTS
+1) spec/spec.v0.1.0.md
+2) reviews/SR-00001.md
+3) amendments/AMD-00001-clarifications.v0.1.1.md
+4) spec/spec.v0.1.1.md
+5) spec/appendices/PALOALTO_DATA_MAPPING.MVP.v1.md
+6) reviews/SR-00002.md
+7) amendments/AMD-00002-state-schema.v0.1.2.md
+8) spec/spec.v0.1.2.md
+9) reviews/SR-00003.md
+
+RUN SUMMARY (append-only)
+- Pass 1: Generated initial spec.v0.1.0 and review SR-00001.
+- Pass 2 (AMD-00001 → spec.v0.1.1): encoded answered decisions and determinism tightening:
+  - Storage root: ~/.netsec-sk
+  - Backend: localhost ephemeral port + runtime/server.json discovery
+  - Batch ingest: sequential, continue on error
+  - Topology inference: CIDR overlap evidence (ignore default route)
+  - RMA: user confirmation when hostname matches but serial differs
+  - Added ingest/commit/runtime schemas and API contract
+  - Added normative TSF extraction appendix (Appendix A)
+- Pass 3 (AMD-00002 → spec.v0.1.2): added deterministic schemas for:
+  - environments/<env_id>/meta.json
+  - environments/<env_id>/state.json (MVP) including ordering + canonical hash rules
+  - environments/<env_id>/intro.md (agent-friendly summary format)
+
+BLOCKER STATUS: UNBLOCKED (DETERMINISTIC)
+- Blocking Questions: empty
+- Spec Ambiguity Audit: 0 remaining ambiguities
+- Decisions: all Active
