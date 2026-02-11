@@ -77,7 +77,7 @@ Lane view:
 LANE1          | LANE2        | LANE3
 runtime-api    | ingest-core  | analysis-flow
 ----------------------------------------------
-TASK-00001     | TASK-00004   | TASK-00010
+~~TASK-00001~~ | TASK-00004   | TASK-00010
 TASK-00002     | TASK-00005   | TASK-00011
 TASK-00003     | TASK-00006   | TASK-00012
                | TASK-00007   |
@@ -113,11 +113,11 @@ A task is invalid unless it includes:
 ### TASK-00001: Runtime Bootstrap + Health Contract
 - Objective: Implement startup/runtime behavior for localhost ephemeral serving and health endpoint.
 - Spec refs: SPEC §4.3 D-00001, SPEC §4.3 D-00010, SPEC §9.5, SPEC §10.1.
-- Status: Not Started
+- Status: Done
 - Blocked by: none
 - Depends on: none
 - Commit requirement: Yes
-- Commit proof: Pending | <hash - TASK-00001: implement runtime bootstrap and health endpoint>
+- Commit proof: Pending (to be filled after commit) | TASK-00001: implement runtime bootstrap and health endpoint
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 
