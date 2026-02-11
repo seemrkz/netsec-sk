@@ -500,7 +500,7 @@ A task is invalid unless it includes:
 - Blocked by: none
 - Depends on: TASK-00004, TASK-00007
 - Commit requirement: Yes
-- Commit proof: Pending (to be filled after commit) | TASK-00008: implement batch ingest order and continue semantics
+- Commit proof: 5679c8b | TASK-00008: implement batch ingest order and continue semantics
 - Changelog requirement: Yes (record in `docs/changelog.md`)
 - Plan update: On completion, update this task’s Status, strike it through in Worktree lanes, and fill commit proof.
 

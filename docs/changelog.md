@@ -90,12 +90,12 @@
   - `tail -n 3 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson" | jq -s -e 'length == 3 and any(.[]; .status=="error")'` -> `true`
   - `tail -n 3 "$HOME/.netsec-sk/environments/$ENV_ID/ingest.ndjson" | jq -r '.source.filenames[0]'` -> `a-ok.tgz`, `b-bad.tgz`, `c-ok.tgz`
 - Commit proof:
-  - Pending
+  - `5679c8b` `TASK-00008: record batch sequencing verification evidence`
 
 ## TASK-00009
 - Date: 2026-02-11
 - Type: Added
-- Summary: Implemented RMA awaiting-user flow with candidates, decision handling (`link_replacement|treat_as_new_device|canceled`), final ingest RMA fields, and runtime payload cleanup/TTL.
+- Summary: Implemented RMA awaiting-user flow with candidates, decision handling (`link_replacement|treat_as_new_device|canceled`), final ingest RMA/error fields, and runtime payload cleanup/TTL.
 - Verification:
   - `curl -sS "$BASE_URL/api/ingests/$A2" | jq -e '.status=="awaiting_user" and .rma_prompt.required==true and (.rma_prompt.candidates|length)>0'` -> `true`
   - `curl -sS -X POST "$BASE_URL/api/ingests/$A2/rma-decision" -H 'Content-Type: application/json' -d '{"decision":"link_replacement","target_logical_device_id":"'$TARGET'"}' | jq -e '.'` -> valid JSON response
